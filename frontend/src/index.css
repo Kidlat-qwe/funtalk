@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* UI baseline: keep palette, improve readability */
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  /* Hide vertical/horizontal scrollbars globally while keeping scroll behavior */
+  * {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none; /* Chrome, Safari, Opera */
+  }
+
+  /* Compact, responsive tables across all pages */
+  main table {
+    @apply w-full table-fixed;
+    min-width: 0 !important;
+  }
+
+  main th {
+    @apply px-3 py-2 text-xs;
+  }
+
+  main td {
+    @apply px-3 py-2 text-sm align-top;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+
+  main .overflow-x-auto {
+    overflow-x: hidden !important;
+  }
+
+  main [style*='min-width'] {
+    min-width: 0 !important;
+  }
+}
+
+@layer components {
+  /* Spacing + typography system (8px scale) */
+  .page-shell {
+    @apply max-w-7xl mx-auto space-y-4 sm:space-y-6;
+  }
+
+  .page-header {
+    @apply flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3;
+  }
+
+  .page-title {
+    @apply text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight;
+  }
+
+  .page-subtitle {
+    @apply mt-1 text-sm sm:text-base text-gray-600 leading-relaxed;
+  }
+
+  /* Cards (grayscale-only structure; keep existing palette colors for accents) */
+  .card {
+    @apply bg-white rounded-xl border border-gray-100 shadow-sm;
+  }
+
+  .card-padded {
+    @apply p-4 sm:p-5 md:p-6;
+  }
+
+  .card-title {
+    @apply text-base sm:text-lg font-semibold text-gray-900;
+  }
+
+  .card-subtitle {
+    @apply mt-1 text-sm text-gray-600;
+  }
+
+  /* Form controls: consistent height, padding, focus, typography */
+  .input-field {
+    @apply w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400;
+    @apply focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors duration-150;
+    @apply disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    /* Primary button: consistent size and hierarchy */
+    @apply w-full inline-flex items-center justify-center gap-2;
+    @apply bg-primary-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold;
+    @apply hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+  .btn-secondary {
+    /* Secondary button: grayscale surface + existing primary accent */
+    @apply w-full inline-flex items-center justify-center gap-2;
+    @apply bg-white text-primary-700 px-4 py-2.5 rounded-lg text-sm font-semibold;
+    @apply border border-gray-300 hover:bg-gray-50;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+  
+  .label {
+    @apply block text-xs sm:text-sm font-medium text-gray-700 mb-1.5;
+}
+
+  .error-message {
+    @apply text-red-600 text-xs sm:text-sm mt-1;
+  }
+}
