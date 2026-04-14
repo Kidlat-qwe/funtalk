@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+import { API_BASE_URL } from '@/config/api.js';
 
 const DURATION_MINUTES_TO_CREDITS = { 25: 1, 50: 2, 75: 3, 100: 4 };
 

@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+import { API_BASE_URL } from '@/config/api.js';
 
 const SchoolPackages = () => {
   const navigate = useNavigate();

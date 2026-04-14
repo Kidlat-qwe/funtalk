@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { BOOKING_TIME_OPTIONS } from '../../constants/bookingTimeOptions.js';
+import { API_BASE_URL } from '@/config/api.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 const DURATION_OPTIONS = [
   { value: '25', label: '25 mins (1 credit)', credits: 1 },
   { value: '50', label: '50 mins (2 credits)', credits: 2 },
