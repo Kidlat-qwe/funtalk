@@ -98,6 +98,56 @@ const PaymentLogs = () => {
 
   const isPdfUrl = (url) => /\.pdf($|\?)/i.test(String(url || ''));
 
+  const escapeCsvValue = (value) => {
+    if (value == null) return '';
+    const stringValue = String(value);
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  };
+
+  const exportToExcel = () => {
+    const headers = [
+      'Payment ID',
+      'Customer Name',
+      'Customer Email',
+      'Reference',
+      'Payment Method',
+      'Amount Paid',
+      'Status',
+      'Billing Type',
+      'Date',
+      'Attachment URL',
+    ];
+
+    const rows = filteredPayments.map((payment) => [
+      `PAY-${payment.payment_id}`,
+      payment.user_name || '',
+      payment.email || '',
+      payment.transaction_ref || '',
+      payment.payment_method || '',
+      Number(payment.amount_paid || 0).toFixed(2),
+      payment.status || '',
+      payment.billing_type || '',
+      formatDate(payment.created_at),
+      payment.attachment_url ? getAttachmentHref(payment.attachment_url) : '',
+    ]);
+
+    const csvContent = [
+      headers.map(escapeCsvValue).join(','),
+      ...rows.map((row) => row.map(escapeCsvValue).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    link.href = downloadUrl;
+    link.setAttribute('download', `payment-logs-${stamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -108,7 +158,7 @@ const PaymentLogs = () => {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-transparent">
       <Header user={user} />
       <div className="flex">
         <Sidebar userType={user.userType} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -121,7 +171,7 @@ const PaymentLogs = () => {
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="card p-4 flex flex-col sm:flex-row gap-3 sm:items-center">
               <input
                 type="text"
                 placeholder="Search reference, customer, email..."
@@ -141,9 +191,17 @@ const PaymentLogs = () => {
                 <option value="cash">Cash</option>
                 <option value="other">Other</option>
               </select>
+              <button
+                type="button"
+                onClick={exportToExcel}
+                disabled={filteredPayments.length === 0}
+                className="w-full sm:w-auto sm:ml-auto px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Export to Excel
+              </button>
             </div>
 
-            <div className="bg-white rounded-lg shadow">
+            <div className="card">
               {isFetching ? (
                 <div className="p-10 text-center text-gray-600 text-sm">Loading payment logs...</div>
               ) : filteredPayments.length === 0 ? (
@@ -203,8 +261,8 @@ const PaymentLogs = () => {
           className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[10000]"
           onClick={() => setAttachmentPreviewUrl('')}
         >
-          <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[85vh] flex flex-col"
+                  <div
+                    className="bg-white rounded-xl shadow-xl w-full max-w-4xl h-[85vh] flex flex-col border border-[#e8ddd8]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">

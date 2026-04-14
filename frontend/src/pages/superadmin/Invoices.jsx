@@ -241,7 +241,7 @@ const Invoices = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-transparent">
       <Header user={user} />
       <div className="flex">
         <Sidebar 
@@ -261,7 +261,7 @@ const Invoices = () => {
 
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="card p-4 sm:p-6">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -277,7 +277,7 @@ const Invoices = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="card p-4 sm:p-6">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
@@ -293,7 +293,7 @@ const Invoices = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="card p-4 sm:p-6">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -309,7 +309,7 @@ const Invoices = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="card p-4 sm:p-6">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -327,7 +327,7 @@ const Invoices = () => {
               </div>
 
               {/* Invoices Table */}
-              <div className="bg-white rounded-lg shadow">
+              <div className="card">
                 {isFetching ? (
                   <div className="p-8 sm:p-10 md:p-12 text-center">
                     <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-primary-600 mx-auto"></div>
@@ -528,7 +528,7 @@ const Invoices = () => {
                   onClick={() => setPayModalInvoice(null)}
                 >
                   <div
-                    className="bg-white rounded-lg shadow-xl w-full max-w-lg"
+                    className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-[#e8ddd8]"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="px-5 py-4 border-b border-gray-200">
@@ -647,7 +647,7 @@ const Invoices = () => {
                   onClick={() => setReceiptModalUrl('')}
                 >
                   <div
-                    className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[85vh] flex flex-col"
+                    className="bg-white rounded-xl shadow-xl w-full max-w-4xl h-[85vh] flex flex-col border border-[#e8ddd8]"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">

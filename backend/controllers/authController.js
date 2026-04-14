@@ -128,7 +128,7 @@ export const register = async (req, res) => {
     }
 
     // Validate user type
-    const allowedUserTypes = ['superadmin', 'admin', 'school', 'teacher'];
+    const allowedUserTypes = ['superadmin', 'school', 'teacher'];
     if (!allowedUserTypes.includes(userType)) {
       await client.query('ROLLBACK');
       return res.status(400).json({

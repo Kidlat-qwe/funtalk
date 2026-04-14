@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { API_BASE_URL } from '@/config/api.js';
 
@@ -13,6 +13,13 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotState, setForgotState] = useState({
+    isLoading: false,
+    error: '',
+    success: '',
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -133,7 +140,8 @@ const Login = () => {
             navigate('/superadmin/dashboard');
             break;
           case 'admin':
-            navigate('/admin/dashboard');
+            // Legacy role fallback: route old admin accounts to superadmin area.
+            navigate('/superadmin/dashboard');
             break;
           case 'school':
             navigate('/school/dashboard');
@@ -152,6 +160,58 @@ const Login = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const openForgotPasswordModal = () => {
+    setForgotEmail(formData.email.trim());
+    setForgotState({ isLoading: false, error: '', success: '' });
+    setIsForgotModalOpen(true);
+  };
+
+  const closeForgotPasswordModal = () => {
+    if (forgotState.isLoading) return;
+    setIsForgotModalOpen(false);
+  };
+
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    const email = forgotEmail.trim().toLowerCase();
+
+    if (!email) {
+      setForgotState((prev) => ({ ...prev, error: 'Email is required', success: '' }));
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setForgotState((prev) => ({
+        ...prev,
+        error: 'Please enter a valid email address',
+        success: '',
+      }));
+      return;
+    }
+
+    setForgotState({ isLoading: true, error: '', success: '' });
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setForgotState({
+        isLoading: false,
+        error: '',
+        success: `Password reset email sent to ${email}. Please check your inbox.`,
+      });
+    } catch (error) {
+      let message = 'Failed to send password reset email. Please try again.';
+      if (error.code === 'auth/user-not-found') {
+        message = 'No account found with this email address.';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Invalid email address.';
+      } else if (error.code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Please try again later.';
+      }
+
+      setForgotState({ isLoading: false, error: message, success: '' });
     }
   };
 
@@ -275,12 +335,13 @@ const Login = () => {
               </div>
 
               <div className="text-xs sm:text-sm">
-                <Link
-                  to="/forgot-password"
+                <button
+                  type="button"
+                  onClick={openForgotPasswordModal}
                   className="font-medium text-primary-600 hover:text-primary-500"
                 >
                   Forgot password?
-                </Link>
+                </button>
               </div>
             </div>
 
@@ -339,6 +400,74 @@ const Login = () => {
           </p>
         </div>
       </div>
+
+      {isForgotModalOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close forgot password modal"
+            className="absolute inset-0 bg-black/50"
+            onClick={closeForgotPasswordModal}
+          />
+          <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-gray-200 p-5 sm:p-6">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Reset password</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Enter your email and we will send a Firebase password reset link.
+            </p>
+
+            <form onSubmit={handleForgotPasswordSubmit} className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="forgot-email" className="label">Email Address</label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => {
+                    setForgotEmail(e.target.value);
+                    if (forgotState.error || forgotState.success) {
+                      setForgotState((prev) => ({ ...prev, error: '', success: '' }));
+                    }
+                  }}
+                  className="input-field"
+                  placeholder="Enter your email"
+                  disabled={forgotState.isLoading}
+                  autoFocus
+                />
+              </div>
+
+              {forgotState.error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{forgotState.error}</p>
+                </div>
+              )}
+
+              {forgotState.success && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-700">{forgotState.success}</p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeForgotPasswordModal}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium"
+                  disabled={forgotState.isLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 text-sm font-medium disabled:opacity-60"
+                  disabled={forgotState.isLoading}
+                >
+                  {forgotState.isLoading ? 'Sending...' : 'Send reset link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

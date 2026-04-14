@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  signOut,
+  updatePassword,
+} from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { API_BASE_URL } from '@/config/api.js';
 
@@ -11,6 +16,17 @@ const Header = ({ user }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotifLoading, setIsNotifLoading] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordState, setPasswordState] = useState({
+    isLoading: false,
+    error: '',
+    success: '',
+  });
 
   const handleLogout = async () => {
     try {
@@ -101,6 +117,122 @@ const Header = ({ user }) => {
     return name.substring(0, 2).toUpperCase();
   };
 
+  const closeChangePasswordModal = () => {
+    if (passwordState.isLoading) return;
+    setIsChangePasswordOpen(false);
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setPasswordState({ isLoading: false, error: '', success: '' });
+  };
+
+  const openChangePasswordModal = () => {
+    setIsMenuOpen(false);
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setPasswordState({ isLoading: false, error: '', success: '' });
+    setIsChangePasswordOpen(true);
+  };
+
+  const handlePasswordFormChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordForm((prev) => ({ ...prev, [name]: value }));
+    if (passwordState.error || passwordState.success) {
+      setPasswordState((prev) => ({ ...prev, error: '', success: '' }));
+    }
+  };
+
+  const handleChangePasswordSubmit = async (e) => {
+    e.preventDefault();
+    const currentUser = auth.currentUser;
+
+    if (!currentUser?.email) {
+      setPasswordState({
+        isLoading: false,
+        error: 'Session expired. Please log in again.',
+        success: '',
+      });
+      return;
+    }
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordState({
+        isLoading: false,
+        error: 'All password fields are required.',
+        success: '',
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordState({
+        isLoading: false,
+        error: 'New password must be at least 6 characters.',
+        success: '',
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordState({
+        isLoading: false,
+        error: 'New password and confirm password do not match.',
+        success: '',
+      });
+      return;
+    }
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      setPasswordState({
+        isLoading: false,
+        error: 'New password must be different from current password.',
+        success: '',
+      });
+      return;
+    }
+
+    setPasswordState({ isLoading: true, error: '', success: '' });
+
+    try {
+      const credential = EmailAuthProvider.credential(
+        currentUser.email,
+        passwordForm.currentPassword
+      );
+      await reauthenticateWithCredential(currentUser, credential);
+      await updatePassword(currentUser, passwordForm.newPassword);
+
+      setPasswordState({
+        isLoading: false,
+        error: '',
+        success: 'Password updated successfully.',
+      });
+
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    } catch (error) {
+      let errorMessage = 'Failed to update password. Please try again.';
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = 'Current password is incorrect.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'New password is too weak.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many attempts. Please try again later.';
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'Please sign in again, then retry password change.';
+      }
+
+      setPasswordState({ isLoading: false, error: errorMessage, success: '' });
+    }
+  };
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -128,7 +260,7 @@ const Header = ({ user }) => {
   }, []);
 
   return (
-    <header className="bg-gradient-to-r from-pink-500 to-pink-600 shadow-lg sticky top-0 z-50">
+    <header className="bg-gradient-to-r from-[#A7816D] via-[#AF8F7E] to-[#B66681] shadow-soft border-b border-white/20 sticky top-0 z-50">
       {/* UI: consistent header container + spacing */}
       <div className="px-4 sm:px-6 lg:px-8">
         {/* Align header brand with sidebar (sidebar uses p-4 on its nav) */}
@@ -160,7 +292,7 @@ const Header = ({ user }) => {
                     fetchUnreadCount();
                   }
                 }}
-                className="relative inline-flex items-center justify-center h-10 w-10 rounded-lg hover:bg-pink-700/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/40"
+                className="relative inline-flex items-center justify-center h-10 w-10 rounded-lg hover:bg-white/15 transition-colors focus:outline-none focus:ring-2 focus:ring-white/40"
                 aria-label="Notifications"
                 title="Notifications"
               >
@@ -173,7 +305,7 @@ const Header = ({ user }) => {
                   />
                 </svg>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-black text-white text-[10px] font-semibold leading-[18px] text-center ring-2 ring-pink-600">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#B66681] text-white text-[10px] font-semibold leading-[18px] text-center ring-2 ring-[#DFC1CB]">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
@@ -225,11 +357,11 @@ const Header = ({ user }) => {
             <div className="relative user-menu-container">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="flex items-center gap-3 hover:bg-pink-700/20 rounded-lg px-2.5 py-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-white/40"
+                className="flex items-center gap-3 hover:bg-white/15 rounded-lg px-2.5 py-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-white/40"
               >
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-white">{user?.name || 'User'}</p>
-                  <p className="text-xs text-pink-100 capitalize">{user?.userType || 'user'}</p>
+                  <p className="text-xs text-[#f7edf1] capitalize">{user?.userType || 'user'}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white font-semibold">
                   {getUserInitials(user?.name)}
@@ -253,9 +385,9 @@ const Header = ({ user }) => {
               {isMenuOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-[100] border border-gray-200 overflow-hidden">
                   <div className="py-1">
-                    <div className="px-4 py-3 border-b border-gray-200 sm:hidden bg-gradient-to-r from-pink-500 to-pink-600">
+                    <div className="px-4 py-3 border-b border-gray-200 sm:hidden bg-gradient-to-r from-[#A7816D] to-[#B66681]">
                       <p className="text-sm font-medium text-white">{user?.name || 'User'}</p>
-                      <p className="text-xs text-pink-100 capitalize">{user?.userType || 'user'}</p>
+                      <p className="text-xs text-[#f7edf1] capitalize">{user?.userType || 'user'}</p>
                     </div>
                     <button
                       onClick={() => {
@@ -263,7 +395,7 @@ const Header = ({ user }) => {
                         alert('Change profile picture functionality coming soon');
                         setIsMenuOpen(false);
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-pink-50 flex items-center gap-2 transition-colors"
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 flex items-center gap-2 transition-colors"
                     >
                       <svg
                         className="w-5 h-5"
@@ -279,6 +411,25 @@ const Header = ({ user }) => {
                         />
                       </svg>
                       <span>Change Profile Picture</span>
+                    </button>
+                    <button
+                      onClick={openChangePasswordModal}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 flex items-center gap-2 transition-colors"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 11c1.657 0 3-1.343 3-3S13.657 5 12 5 9 6.343 9 8s1.343 3 3 3zm-7 8a7 7 0 1114 0H5zm11-7h2a2 2 0 012 2v4m-7-6h.01"
+                        />
+                      </svg>
+                      <span>Change Password</span>
                     </button>
                     <button
                       onClick={() => {
@@ -309,6 +460,94 @@ const Header = ({ user }) => {
           </div>
         </div>
       </div>
+
+      {isChangePasswordOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close change password modal"
+            className="absolute inset-0 bg-black/50"
+            onClick={closeChangePasswordModal}
+          />
+          <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl border border-gray-200 p-5 sm:p-6">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Change password</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              This updates your password in Firebase Authentication.
+            </p>
+
+            <form onSubmit={handleChangePasswordSubmit} className="mt-4 space-y-3">
+              <div>
+                <label htmlFor="currentPassword" className="label">Current Password</label>
+                <input
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={handlePasswordFormChange}
+                  className="input-field"
+                  disabled={passwordState.isLoading}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="newPassword" className="label">New Password</label>
+                <input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordFormChange}
+                  className="input-field"
+                  disabled={passwordState.isLoading}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="label">Confirm New Password</label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={handlePasswordFormChange}
+                  className="input-field"
+                  disabled={passwordState.isLoading}
+                />
+              </div>
+
+              {passwordState.error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{passwordState.error}</p>
+                </div>
+              )}
+
+              {passwordState.success && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-700">{passwordState.success}</p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeChangePasswordModal}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium"
+                  disabled={passwordState.isLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 text-sm font-medium disabled:opacity-60"
+                  disabled={passwordState.isLoading}
+                >
+                  {passwordState.isLoading ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

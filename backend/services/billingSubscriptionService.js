@@ -3,16 +3,41 @@ import { createNotification, ensureNotificationSchema } from './notificationServ
 
 const PATTY_BILLING_TYPE = 'patty';
 
-const toIsoDate = (value) => {
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) {
-    return new Date().toISOString().split('T')[0];
+const formatLocalDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseIsoDateAsLocalNoon = (value) => {
+  if (value instanceof Date) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate(), 12, 0, 0, 0);
   }
-  return d.toISOString().split('T')[0];
+  if (typeof value === 'string') {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const year = Number(m[1]);
+      const month = Number(m[2]) - 1;
+      const day = Number(m[3]);
+      return new Date(year, month, day, 12, 0, 0, 0);
+    }
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return parsed;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0, 0);
+};
+
+const toIsoDate = (value) => {
+  const d = parseIsoDateAsLocalNoon(value);
+  if (Number.isNaN(d.getTime())) {
+    return formatLocalDate(new Date());
+  }
+  return formatLocalDate(d);
 };
 
 const addMonthsKeepDay = (isoDate, months) => {
-  const source = new Date(`${isoDate}T00:00:00`);
+  const source = parseIsoDateAsLocalNoon(isoDate);
   const target = new Date(source);
   target.setMonth(target.getMonth() + months);
   if (target.getDate() !== source.getDate()) {
@@ -23,7 +48,7 @@ const addMonthsKeepDay = (isoDate, months) => {
 
 const computeCycleEnd = (cycleStart) => {
   const nextStart = addMonthsKeepDay(cycleStart, 1);
-  const end = new Date(`${nextStart}T00:00:00`);
+  const end = parseIsoDateAsLocalNoon(nextStart);
   end.setDate(end.getDate() - 1);
   return toIsoDate(end);
 };
@@ -35,7 +60,7 @@ const computeCycleEnd = (cycleStart) => {
  */
 const computeDueDate = (cycleStart, paymentDueDay) => {
   const day = Math.max(1, Math.min(28, Number(paymentDueDay) || 1));
-  const anchor = new Date(`${cycleStart}T12:00:00`);
+  const anchor = parseIsoDateAsLocalNoon(cycleStart);
   if (Number.isNaN(anchor.getTime())) {
     const fallback = new Date();
     const due = new Date(fallback.getFullYear(), fallback.getMonth() + 1, day);

@@ -131,9 +131,6 @@ const Signup = () => {
           case 'superadmin':
             navigate('/superadmin/dashboard');
             break;
-          case 'admin':
-            navigate('/admin/dashboard');
-            break;
           case 'school':
             navigate('/school/dashboard');
             break;
@@ -183,7 +180,6 @@ const Signup = () => {
                 disabled={isLoading}
               >
                 <option value="superadmin">Super Admin</option>
-                <option value="admin">Admin</option>
                 <option value="school">School</option>
                 <option value="teacher">Teacher</option>
               </select>
@@ -193,8 +189,6 @@ const Signup = () => {
               <p className="mt-1 text-xs sm:text-sm text-gray-500">
                 {formData.userType === 'superadmin'
                   ? 'Platform owner/developer - Full system access'
-                  : formData.userType === 'admin'
-                  ? 'Operational staff - Manage schools and teachers'
                   : formData.userType === 'school'
                   ? 'For educational institutions'
                   : 'For individual teachers'}
@@ -206,7 +200,7 @@ const Signup = () => {
               <label htmlFor="name" className="label">
                 {formData.userType === 'school'
                   ? 'School Name'
-                  : formData.userType === 'superadmin' || formData.userType === 'admin'
+                  : formData.userType === 'superadmin'
                   ? 'Full Name'
                   : 'Full Name'}
               </label>

@@ -36,8 +36,8 @@ router.post(
       .isLength({ min: 6 })
       .withMessage('Password must be at least 6 characters'),
     body('userType')
-      .isIn(['superadmin', 'admin', 'school', 'teacher'])
-      .withMessage('Invalid user type. Must be: superadmin, admin, school, or teacher'),
+      .isIn(['superadmin', 'school', 'teacher'])
+      .withMessage('Invalid user type. Must be: superadmin, school, or teacher'),
     body('phoneNumber').optional({ nullable: true, checkFalsy: true }).isString().withMessage('Phone number must be a string'),
     body('billingType').optional({ nullable: true, checkFalsy: true }).isString().withMessage('Billing type must be a string'),
     body('billingConfig')

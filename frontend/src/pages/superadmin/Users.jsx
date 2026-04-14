@@ -608,6 +608,53 @@ const Users = () => {
     return userType.charAt(0).toUpperCase() + userType.slice(1);
   };
 
+  const formatLastLogin = (lastLogin) => {
+    if (!lastLogin) return null;
+    const raw = String(lastLogin).trim();
+    const hasTimezone = /z$/i.test(raw) || /[+-]\d{2}:?\d{2}$/.test(raw);
+
+    // If timezone is missing, treat DB value as already UTC+8 wall-clock time.
+    if (!hasTimezone) {
+      const m = raw.match(
+        /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/
+      );
+      if (!m) return null;
+      const year = Number(m[1]);
+      const month = Number(m[2]);
+      const day = Number(m[3]);
+      const hour24 = Number(m[4] ?? '0');
+      const minute = Number(m[5] ?? '0');
+      const monthShort = new Date(year, month - 1, day).toLocaleString('en-US', {
+        month: 'short',
+      });
+      const period = hour24 >= 12 ? 'PM' : 'AM';
+      const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+      return {
+        dateText: `${monthShort} ${day}, ${year}`,
+        timeText: `${hour12}:${String(minute).padStart(2, '0')} ${period}`,
+      };
+    }
+
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return null;
+
+    const dateText = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+
+    const timeText = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+
+    return { dateText, timeText };
+  };
+
   // Get billing type from user data
   const getBillingType = (userItem) => {
     if (!userItem.billing_type) return '-';
@@ -800,7 +847,6 @@ const Users = () => {
                         <tr>
                           <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <div className="flex items-center space-x-2">
-                              <span className="text-xs font-medium text-gray-500 uppercase">NAME</span>
                               <input
                                 type="text"
                                 placeholder="Search..."
@@ -821,7 +867,6 @@ const Users = () => {
                             >
                               <option value="">Role</option>
                               <option value="superadmin">Superadmin</option>
-                              <option value="admin">Admin</option>
                               <option value="school">School</option>
                               <option value="teacher">Teacher</option>
                             </select>
@@ -831,6 +876,9 @@ const Users = () => {
                           </th>
                           <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                             Status
+                          </th>
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
+                            Last Login
                           </th>
                           <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                             Actions
@@ -884,6 +932,20 @@ const Users = () => {
                                 <option value="inactive">Inactive</option>
                                 <option value="pending">Pending</option>
                               </select>
+                            </td>
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden xl:table-cell">
+                              {(() => {
+                                const lastLogin = formatLastLogin(userItem.last_login);
+                                if (!lastLogin) {
+                                  return <span className="text-sm text-gray-500">Never</span>;
+                                }
+                                return (
+                                  <div className="text-sm text-gray-700 leading-tight">
+                                    <p>{lastLogin.dateText}</p>
+                                    <p className="text-gray-500">{lastLogin.timeText} (UTC+8)</p>
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium hidden md:table-cell">
                               <div className="flex justify-end">
@@ -1116,7 +1178,6 @@ const Users = () => {
                             }`}
                           >
                             <option value="school">School</option>
-                            <option value="admin">Admin</option>
                             <option value="superadmin">Superadmin</option>
                             <option value="teacher">Teacher</option>
                           </select>

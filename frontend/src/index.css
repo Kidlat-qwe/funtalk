@@ -3,13 +3,18 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+
   /* UI baseline: keep palette, improve readability */
   html {
     @apply antialiased;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply text-gray-900;
+    background: radial-gradient(circle at top, #DFC1CB 0%, #f9f3ef 38%, #fffdfb 100%);
   }
 
   /* Hide vertical/horizontal scrollbars globally while keeping scroll behavior */
@@ -69,7 +74,9 @@
 
   /* Cards (grayscale-only structure; keep existing palette colors for accents) */
   .card {
-    @apply bg-white rounded-xl border border-gray-100 shadow-sm;
+    @apply bg-white rounded-xl border shadow-sm;
+    border-color: #DFC1CB;
+    box-shadow: 0 6px 20px rgba(90, 57, 49, 0.08);
   }
 
   .card-padded {
@@ -87,26 +94,41 @@
   /* Form controls: consistent height, padding, focus, typography */
   .input-field {
     @apply w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400;
-    @apply focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors duration-150;
+    @apply focus:ring-2 outline-none transition-colors duration-150;
+    --tw-ring-color: #AF8F7E;
+    border-color: #DFC1CB;
     @apply disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed;
   }
   
   .btn-primary {
     /* Primary button: consistent size and hierarchy */
     @apply w-full inline-flex items-center justify-center gap-2;
-    @apply bg-primary-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold;
-    @apply hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply text-white px-4 py-2.5 rounded-lg text-sm font-semibold;
+    background-color: #B66681;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    --tw-ring-color: #AF8F7E;
     @apply transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
 }
+
+  .btn-primary:hover {
+    background-color: #A7816D;
+  }
 
   .btn-secondary {
     /* Secondary button: grayscale surface + existing primary accent */
     @apply w-full inline-flex items-center justify-center gap-2;
-    @apply bg-white text-primary-700 px-4 py-2.5 rounded-lg text-sm font-semibold;
-    @apply border border-gray-300 hover:bg-gray-50;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply bg-white px-4 py-2.5 rounded-lg text-sm font-semibold;
+    color: #A7816D;
+    border: 1px solid #DFC1CB;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    --tw-ring-color: #AF8F7E;
     @apply transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
 }
+
+  .btn-secondary:hover {
+    background-color: #DFC1CB;
+    color: #7b5a4a;
+  }
   
   .label {
     @apply block text-xs sm:text-sm font-medium text-gray-700 mb-1.5;

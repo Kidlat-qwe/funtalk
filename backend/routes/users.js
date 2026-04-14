@@ -16,7 +16,7 @@ router.get(
   authenticate,
   isAdmin,
   [
-    queryValidator('userType').optional().isIn(['superadmin', 'admin', 'school', 'teacher']),
+    queryValidator('userType').optional().isIn(['superadmin', 'school', 'teacher']),
     queryValidator('status').optional().isIn(['active', 'inactive', 'pending']),
     handleValidationErrors,
   ],
@@ -47,7 +47,7 @@ router.put(
       .isLength({ min: 6 })
       .withMessage('Password must be at least 6 characters'),
     body('status').optional().isIn(['active', 'inactive', 'pending']),
-    body('userType').optional().isIn(['superadmin', 'admin', 'school', 'teacher']),
+    body('userType').optional().isIn(['superadmin', 'school', 'teacher']),
     body('billingType').optional().isString(),
     body('billingConfig').optional().isObject(),
     handleValidationErrors,

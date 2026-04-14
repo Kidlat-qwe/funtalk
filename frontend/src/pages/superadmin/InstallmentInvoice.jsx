@@ -111,8 +111,10 @@ function InstallmentProgressBar({ row }) {
   if (!p) {
     return <span className="text-xs text-gray-400">No invoices yet</span>;
   }
+  const generated = Number(row.patty_inv_total) || 0;
+  const expectedInstallments = 12;
   return (
-    <div className="space-y-1.5 min-w-[140px] max-w-[220px]">
+    <div className="w-full min-w-[190px] max-w-[260px] space-y-2">
       <div
         className="h-2.5 w-full rounded-full bg-gray-200 overflow-hidden ring-1 ring-inset ring-gray-100"
         title={p.hint ? `${p.label} (${p.hint})` : p.label}
@@ -122,11 +124,15 @@ function InstallmentProgressBar({ row }) {
           style={{ width: `${p.pct}%` }}
         />
       </div>
-      <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] sm:text-xs text-gray-600">
-        <span className="font-semibold text-gray-900">{p.pct}%</span>
-        <span className="text-gray-400">·</span>
-        <span>{p.label}</span>
-        {p.hint && <span className="text-gray-400 w-full sm:w-auto">({p.hint})</span>}
+      <div className="space-y-0.5">
+        <p className="text-[11px] sm:text-xs text-gray-700 leading-tight">
+          <span className="font-semibold text-gray-900">{p.pct}%</span>
+          <span className="text-gray-400 mx-1">·</span>
+          <span>{generated}/{expectedInstallments} generated</span>
+        </p>
+        <p className="text-[11px] sm:text-xs text-gray-500 leading-tight">
+          {p.paid} paid · {p.pending} pending
+        </p>
       </div>
     </div>
   );
@@ -344,7 +350,7 @@ const InstallmentInvoice = () => {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-transparent">
       <Header user={user} />
       <div className="flex">
         <Sidebar userType={user.userType} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -384,7 +390,7 @@ const InstallmentInvoice = () => {
             </div>
 
 
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="card overflow-hidden">
               <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center gap-3">
                 <label className="flex-1 min-w-0">
                   <span className="sr-only">Search</span>
@@ -512,7 +518,7 @@ const InstallmentInvoice = () => {
 
                   {/* Desktop table */}
                   <div className="hidden md:block overflow-x-auto">
-                    <table className="min-w-[1200px] w-full divide-y divide-gray-200">
+                    <table className="min-w-[1280px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -524,7 +530,7 @@ const InstallmentInvoice = () => {
                           <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Monthly amt.
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[240px]">
                             Installment progress
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -568,7 +574,7 @@ const InstallmentInvoice = () => {
                                 </div>
                               )}
                             </td>
-                            <td className="px-4 py-3 align-top text-sm text-gray-800">
+                            <td className="px-4 py-3 align-top text-sm text-gray-800 w-[240px]">
                               <InstallmentProgressBar row={r} />
                             </td>
                             <td className="px-4 py-3 align-top text-sm text-gray-800">{formatDate(r.next_due_date)}</td>
