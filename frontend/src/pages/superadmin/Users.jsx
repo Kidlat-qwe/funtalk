@@ -5,6 +5,8 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
 
+const todayYyyyMmDd = () => new Date().toISOString().slice(0, 10);
+
 const Users = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,11 +33,10 @@ const Users = () => {
       creditsPerCycle: '',
       ratePerCredit: '',
       paymentDueDay: '1',
+      billingDurationMonths: '12',
+      penaltyPercentage: '10',
       graceDays: '7',
-      rolloverEnabled: true,
-      maxRolloverCredits: '100',
-      autoRenew: true,
-      startDate: '',
+      startDate: todayYyyyMmDd(),
     },
     status: 'active',
     paymentStatus: 'pending',
@@ -108,11 +109,10 @@ const Users = () => {
         creditsPerCycle: '',
         ratePerCredit: '',
         paymentDueDay: '1',
+        billingDurationMonths: '12',
+        penaltyPercentage: '10',
         graceDays: '7',
-        rolloverEnabled: true,
-        maxRolloverCredits: '100',
-        autoRenew: true,
-        startDate: '',
+        startDate: todayYyyyMmDd(),
       },
       status: 'active',
       paymentStatus: 'pending',
@@ -247,6 +247,19 @@ const Users = () => {
         newErrors.ratePerCredit = 'Rate per credit is required';
       }
     }
+    if (formData.userType === 'school' && formData.billingType === 'patty') {
+      if (!['3', '6', '12'].includes(String(formData.billingConfig.billingDurationMonths || ''))) {
+        newErrors.billingDurationMonths = 'Billing duration is required';
+      }
+      if (
+        formData.billingConfig.penaltyPercentage === '' ||
+        Number.isNaN(Number(formData.billingConfig.penaltyPercentage)) ||
+        Number(formData.billingConfig.penaltyPercentage) < 0 ||
+        Number(formData.billingConfig.penaltyPercentage) > 100
+      ) {
+        newErrors.penaltyPercentage = 'Penalty must be between 0 and 100';
+      }
+    }
     if (
       !editingUserId &&
       formData.userType === 'school' &&
@@ -277,10 +290,9 @@ const Users = () => {
     creditsPerCycle: parseInt(formData.billingConfig.creditsPerCycle || '0', 10),
     ratePerCredit: parseFloat(formData.billingConfig.ratePerCredit || '0'),
     paymentDueDay: parseInt(formData.billingConfig.paymentDueDay || '1', 10),
+    billingDurationMonths: parseInt(formData.billingConfig.billingDurationMonths || '12', 10),
+    penaltyPercentage: parseFloat(formData.billingConfig.penaltyPercentage || '10'),
     graceDays: parseInt(formData.billingConfig.graceDays || '0', 10),
-    rolloverEnabled: Boolean(formData.billingConfig.rolloverEnabled),
-    maxRolloverCredits: parseInt(formData.billingConfig.maxRolloverCredits || '0', 10),
-    autoRenew: Boolean(formData.billingConfig.autoRenew),
     startDate: formData.billingConfig.startDate || null,
   });
 
@@ -477,22 +489,20 @@ const Users = () => {
               creditsPerCycle: pb.creditsPerCycle || '',
               ratePerCredit: pb.ratePerCredit || '',
               paymentDueDay: pb.paymentDueDay || '1',
+              billingDurationMonths: pb.billingDurationMonths || '12',
+              penaltyPercentage: pb.penaltyPercentage || '10',
               graceDays: pb.graceDays || '7',
-              rolloverEnabled: pb.rolloverEnabled !== false,
-              maxRolloverCredits: pb.maxRolloverCredits || '100',
-              autoRenew: pb.autoRenew !== false,
-              startDate: pb.startDate || '',
+              startDate: pb.startDate || todayYyyyMmDd(),
             }
           : {
               planName: '',
               creditsPerCycle: '',
               ratePerCredit: '',
               paymentDueDay: '1',
+              billingDurationMonths: '12',
+              penaltyPercentage: '10',
               graceDays: '7',
-              rolloverEnabled: true,
-              maxRolloverCredits: '100',
-              autoRenew: true,
-              startDate: '',
+              startDate: todayYyyyMmDd(),
             },
         status: u.status || 'active',
         paymentStatus: 'pending',
@@ -1215,15 +1225,14 @@ const Users = () => {
                           <div className="md:col-span-2 space-y-3 p-3 sm:p-4 rounded-lg border border-blue-100 bg-blue-50">
                             <p className="text-xs sm:text-sm font-medium text-blue-800">Patty Monthly Billing Settings</p>
                             <p className="text-xs text-blue-900/90 leading-relaxed">
-                              Monthly installments are billed each cycle (not a single upfront payment). The school receives{' '}
-                              <span className="font-medium">the first month&apos;s credits</span> when the account is created;
-                              a <span className="font-medium">pending invoice</span> for that period is created for finance to
-                              track. No receipt or payment step is required here.
+                              Monthly installments are billed per cycle. Invoice amount is computed as{' '}
+                              <span className="font-medium">(credits × rate) / duration months</span>. Invoices are auto-generated
+                              7 days before due date, and finance can still generate invoices manually.
                             </p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div>
                                 <label htmlFor="creditsPerCycle" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                  Monthly Credits <span className="text-red-500">*</span>
+                                  Total Credits <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                   id="creditsPerCycle"
@@ -1257,7 +1266,7 @@ const Users = () => {
                                 {formErrors.ratePerCredit && <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.ratePerCredit}</p>}
                               </div>
                               <div>
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Due Day (1-28)</label>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Due Date (Day 1-28)</label>
                                 <input
                                   name="billingConfig.paymentDueDay"
                                   type="number"
@@ -1269,23 +1278,52 @@ const Users = () => {
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Grace Days</label>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                  Penalty (%) 
+                                </label>
+                                <input
+                                  name="billingConfig.penaltyPercentage"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={formData.billingConfig.penaltyPercentage}
+                                  onChange={handleFormChange}
+                                  className={`w-full px-3 sm:px-4 py-2 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                                    formErrors.penaltyPercentage ? 'border-red-500' : 'border-gray-300'
+                                  }`}
+                                />
+                                {formErrors.penaltyPercentage && (
+                                  <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.penaltyPercentage}</p>
+                                )}
+                              </div>
+                              <div>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                  Billing Duration
+                                </label>
+                                <select
+                                  name="billingConfig.billingDurationMonths"
+                                  value={formData.billingConfig.billingDurationMonths}
+                                  onChange={handleFormChange}
+                                  className={`w-full px-3 sm:px-4 py-2 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                                    formErrors.billingDurationMonths ? 'border-red-500' : 'border-gray-300'
+                                  }`}
+                                >
+                                  <option value="3">3 months</option>
+                                  <option value="6">6 months</option>
+                                  <option value="12">12 months</option>
+                                </select>
+                                {formErrors.billingDurationMonths && (
+                                  <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.billingDurationMonths}</p>
+                                )}
+                              </div>
+                              <div>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Grace Period</label>
                                 <input
                                   name="billingConfig.graceDays"
                                   type="number"
                                   min="0"
                                   value={formData.billingConfig.graceDays}
-                                  onChange={handleFormChange}
-                                  className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Rollover Cap</label>
-                                <input
-                                  name="billingConfig.maxRolloverCredits"
-                                  type="number"
-                                  min="0"
-                                  value={formData.billingConfig.maxRolloverCredits}
                                   onChange={handleFormChange}
                                   className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                 />
@@ -1300,28 +1338,6 @@ const Users = () => {
                                   className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                 />
                               </div>
-                            </div>
-                            <div className="flex items-center gap-6">
-                              <label className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-700">
-                                <input
-                                  type="checkbox"
-                                  name="billingConfig.rolloverEnabled"
-                                  checked={formData.billingConfig.rolloverEnabled}
-                                  onChange={handleFormChange}
-                                  className="h-4 w-4 text-primary-600 border-gray-300 rounded"
-                                />
-                                Enable rollover
-                              </label>
-                              <label className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-700">
-                                <input
-                                  type="checkbox"
-                                  name="billingConfig.autoRenew"
-                                  checked={formData.billingConfig.autoRenew}
-                                  onChange={handleFormChange}
-                                  className="h-4 w-4 text-primary-600 border-gray-300 rounded"
-                                />
-                                Auto renew
-                              </label>
                             </div>
                           </div>
                         )}

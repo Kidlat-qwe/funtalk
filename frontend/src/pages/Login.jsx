@@ -217,13 +217,16 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-50 px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8 md:py-12">
-      <div className="max-w-md w-full space-y-6 sm:space-y-8">
+      <div className="max-w-md w-full space-y-3 sm:space-y-4">
         {/* Header */}
         <div className="text-center">
-          {/* UI: tighter hierarchy + consistent tracking */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 tracking-tight mb-2">Funtalk</h1>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-gray-700 tracking-tight">Welcome Back</h2>
-          <p className="mt-2 text-xs sm:text-sm md:text-base text-gray-600">
+          <img
+            src="/funtalk-logo.png"
+            alt="Funtalk Logo"
+            className="mx-auto h-12 sm:h-14 md:h-16 w-auto object-contain"
+          />
+          <h1 className="mt-1 text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">Funtalk Online Tutor</h1>
+          <p className="mt-1 text-xs sm:text-sm md:text-base text-gray-600">
             Sign in to your account to continue
           </p>
         </div>
@@ -317,32 +320,15 @@ const Login = () => {
               )}
             </div>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-xs sm:text-sm text-gray-700"
-                >
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-xs sm:text-sm">
-                <button
-                  type="button"
-                  onClick={openForgotPasswordModal}
-                  className="font-medium text-primary-600 hover:text-primary-500"
-                >
-                  Forgot password?
-                </button>
-              </div>
+            {/* Forgot Password */}
+            <div className="text-xs sm:text-sm text-right">
+              <button
+                type="button"
+                onClick={openForgotPasswordModal}
+                className="font-medium text-primary-600 hover:text-primary-500"
+              >
+                Forgot password?
+              </button>
             </div>
 
             {/* Submit Error */}

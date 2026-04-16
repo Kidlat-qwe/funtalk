@@ -13,6 +13,7 @@ const MATERIAL_PREFIX_BY_USER_TYPE = {
   superadmin: 'materials/superadmin_materials/',
   admin: 'materials/admin-materials/',
   teacher: 'materials/teacher_materials/',
+  school: 'materials/user-materials/',
 };
 const RECEIPTS_PREFIX = 'receipts/';
 const TEACHER_PROFILE_PREFIX_BY_ASSET = {

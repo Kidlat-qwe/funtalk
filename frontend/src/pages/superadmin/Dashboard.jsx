@@ -6,7 +6,6 @@ import { API_BASE_URL } from '@/config/api.js';
 
 const USER_TYPE_LABELS = {
   superadmin: 'Super Admin',
-  admin: 'Admin',
   school: 'School',
   teacher: 'Teacher',
 };

@@ -94,6 +94,14 @@ const Invoices = () => {
   };
 
   const handlePayInvoice = async (invoiceId) => {
+    if (!payForm.referenceNumber.trim()) {
+      alert('Reference number is required.');
+      return;
+    }
+    if (!payForm.paymentAttachment) {
+      alert('Attachment image is required.');
+      return;
+    }
     setPayingInvoiceId(invoiceId);
     try {
       const token = localStorage.getItem('token');
@@ -101,7 +109,7 @@ const Invoices = () => {
       payload.append('paymentType', payForm.paymentType);
       payload.append('referenceNumber', payForm.referenceNumber.trim());
       if (payForm.remarks?.trim()) payload.append('remarks', payForm.remarks.trim());
-      if (payForm.paymentAttachment) payload.append('paymentAttachment', payForm.paymentAttachment);
+      payload.append('paymentAttachment', payForm.paymentAttachment);
       const response = await fetch(`${API_BASE_URL}/billing/${invoiceId}/approve`, {
         method: 'POST',
         headers: {
@@ -576,17 +584,23 @@ const Invoices = () => {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Reference Number</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Reference Number <span className="text-red-600" aria-hidden="true">*</span>
+                          </label>
                           <input
                             type="text"
                             value={payForm.referenceNumber}
                             onChange={(e) => setPayForm((prev) => ({ ...prev, referenceNumber: e.target.value }))}
                             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                             placeholder="Enter transaction reference"
+                            required
+                            aria-required="true"
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Attachment Image</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Attachment Image <span className="text-red-600" aria-hidden="true">*</span>
+                          </label>
                           <input
                             type="file"
                             accept="image/*,.pdf"
@@ -594,10 +608,12 @@ const Invoices = () => {
                               setPayForm((prev) => ({ ...prev, paymentAttachment: e.target.files?.[0] || null }))
                             }
                             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white"
+                            required
+                            aria-required="true"
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Remarks (Optional)</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
                           <textarea
                             value={payForm.remarks}
                             onChange={(e) => setPayForm((prev) => ({ ...prev, remarks: e.target.value }))}
@@ -620,14 +636,13 @@ const Invoices = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (!payForm.referenceNumber.trim()) {
-                            alert('Reference number is required.');
-                            return;
-                          }
-                          handlePayInvoice(payModalInvoice.invoice_id);
-                        }}
-                        disabled={payModalInvoice.status === 'paid' || payingInvoiceId === payModalInvoice.invoice_id}
+                        onClick={() => handlePayInvoice(payModalInvoice.invoice_id)}
+                        disabled={
+                          payModalInvoice.status === 'paid' ||
+                          payingInvoiceId === payModalInvoice.invoice_id ||
+                          !payForm.referenceNumber.trim() ||
+                          !payForm.paymentAttachment
+                        }
                         className="px-4 py-2 text-sm rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {payingInvoiceId === payModalInvoice.invoice_id

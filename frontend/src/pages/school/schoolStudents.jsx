@@ -5,6 +5,15 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
 
+const CEFR_LEVEL_OPTIONS = [
+  { value: 'A1', label: 'A1' },
+  { value: 'A2', label: 'A2' },
+  { value: 'B1', label: 'B1' },
+  { value: 'B2', label: 'B2' },
+  { value: 'C1', label: 'C1' },
+  { value: 'C2', label: 'C2' },
+];
+
 const SchoolStudents = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -22,7 +31,6 @@ const SchoolStudents = () => {
     studentAge: '',
     studentLevel: '',
     studentEmail: '',
-    studentPhone: '',
     parentName: '',
     parentContact: '',
     notes: '',
@@ -30,6 +38,8 @@ const SchoolStudents = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openActionMenuId, setOpenActionMenuId] = useState(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -95,7 +105,6 @@ const SchoolStudents = () => {
       studentAge: '',
       studentLevel: '',
       studentEmail: '',
-      studentPhone: '',
       parentName: '',
       parentContact: '',
       notes: '',
@@ -111,7 +120,6 @@ const SchoolStudents = () => {
       studentAge: student.student_age || '',
       studentLevel: student.student_level || '',
       studentEmail: student.student_email || '',
-      studentPhone: student.student_phone || '',
       parentName: student.parent_name || '',
       parentContact: student.parent_contact || '',
       notes: student.notes || '',
@@ -142,8 +150,27 @@ const SchoolStudents = () => {
       newErrors.studentName = 'Student name is required';
     }
 
-    if (formData.studentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.studentEmail)) {
+    if (!String(formData.studentAge || '').trim()) {
+      newErrors.studentAge = 'Age is required';
+    } else {
+      const age = Number(formData.studentAge);
+      if (!Number.isInteger(age) || age < 1 || age > 120) {
+        newErrors.studentAge = 'Age must be a whole number between 1 and 120';
+      }
+    }
+
+    if (!String(formData.studentEmail || '').trim()) {
+      newErrors.studentEmail = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.studentEmail)) {
       newErrors.studentEmail = 'Please enter a valid email address';
+    }
+
+    if (!String(formData.parentName || '').trim()) {
+      newErrors.parentName = 'Parent name is required';
+    }
+
+    if (!String(formData.parentContact || '').trim()) {
+      newErrors.parentContact = 'Parent contact is required';
     }
 
     setFormErrors(newErrors);
@@ -176,12 +203,11 @@ const SchoolStudents = () => {
         },
         body: JSON.stringify({
           studentName: formData.studentName.trim(),
-          studentAge: formData.studentAge ? parseInt(formData.studentAge, 10) : undefined,
+          studentAge: parseInt(formData.studentAge, 10),
           studentLevel: formData.studentLevel || undefined,
-          studentEmail: formData.studentEmail || undefined,
-          studentPhone: formData.studentPhone || undefined,
-          parentName: formData.parentName || undefined,
-          parentContact: formData.parentContact || undefined,
+          studentEmail: formData.studentEmail.trim(),
+          parentName: formData.parentName.trim(),
+          parentContact: formData.parentContact.trim(),
           notes: formData.notes || undefined,
           isActive: editingStudent ? formData.isActive : true,
         }),
@@ -246,6 +272,24 @@ const SchoolStudents = () => {
     }
   };
 
+  useEffect(() => {
+    if (!openActionMenuId) return undefined;
+    const onDocClick = () => setOpenActionMenuId(null);
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [openActionMenuId]);
+
+  useEffect(() => {
+    if (!openActionMenuId) return undefined;
+    const closeMenu = () => setOpenActionMenuId(null);
+    window.addEventListener('scroll', closeMenu, true);
+    window.addEventListener('resize', closeMenu);
+    return () => {
+      window.removeEventListener('scroll', closeMenu, true);
+      window.removeEventListener('resize', closeMenu);
+    };
+  }, [openActionMenuId]);
+
   // Filter students
   const filteredStudents = students.filter((s) => {
     const matchesName = !nameSearch || 
@@ -257,8 +301,12 @@ const SchoolStudents = () => {
     return matchesName && matchesLevel && matchesStatus;
   });
 
-  // Get unique levels
-  const levels = [...new Set(students.map(s => s.student_level).filter(Boolean))];
+  // Standard level options (CEFR) + keep legacy values visible in filter if data still has them.
+  const levels = [
+    ...CEFR_LEVEL_OPTIONS.map((o) => o.value),
+    ...[...new Set(students.map((s) => s.student_level).filter(Boolean))]
+      .filter((lvl) => !CEFR_LEVEL_OPTIONS.some((o) => o.value === lvl)),
+  ];
 
   // Format date
   const formatDate = (dateString) => {
@@ -341,12 +389,11 @@ const SchoolStudents = () => {
                   </div>
                 ) : (
                   <div className="overflow-x-auto overflow-hidden">
-                    <table className="w-full divide-y divide-gray-200" style={{ minWidth: '900px' }}>
+                    <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1000px' }}>
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <div className="flex items-center space-x-2">
-                              <span>Name</span>
                               <input
                                 type="text"
                                 placeholder="Search..."
@@ -374,7 +421,8 @@ const SchoolStudents = () => {
                             </select>
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Email</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Phone</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Parent Name</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Parent Contact</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <select
                               value={statusFilter}
@@ -413,7 +461,10 @@ const SchoolStudents = () => {
                               <div className="text-sm text-gray-900">{student.student_email || '-'}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
-                              <div className="text-sm text-gray-900">{student.student_phone || '-'}</div>
+                              <div className="text-sm text-gray-900">{student.parent_name || '-'}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                              <div className="text-sm text-gray-900">{student.parent_contact || '-'}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               {student.is_active ? (
@@ -430,18 +481,28 @@ const SchoolStudents = () => {
                               <div className="text-sm text-gray-500">{formatDate(student.created_at)}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex justify-end gap-2">
+                              <div className="inline-block text-left">
                                 <button
-                                  onClick={() => handleEditClick(student)}
-                                  className="text-primary-600 hover:text-primary-900"
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (openActionMenuId === student.student_id) {
+                                      setOpenActionMenuId(null);
+                                      return;
+                                    }
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setMenuPosition({
+                                      top: rect.bottom + 8,
+                                      right: window.innerWidth - rect.right,
+                                    });
+                                    setOpenActionMenuId(student.student_id);
+                                  }}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                  aria-label="Open actions"
                                 >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(student.student_id, student.student_name)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Delete
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                    <path d="M10 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 5.5A1.5 1.5 0 1010 8a1.5 1.5 0 000 3.5zM11.5 15a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                                  </svg>
                                 </button>
                               </div>
                             </td>
@@ -522,7 +583,9 @@ const SchoolStudents = () => {
                           </div>
 
                           <div>
-                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Age</label>
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                              Age <span className="text-red-500">*</span>
+                            </label>
                             <input
                               name="studentAge"
                               type="number"
@@ -530,24 +593,36 @@ const SchoolStudents = () => {
                               max="120"
                               value={formData.studentAge}
                               onChange={handleFormChange}
-                              className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                              className={`w-full px-3 sm:px-4 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 ${
+                                formErrors.studentAge ? 'border-red-500' : 'border-gray-300'
+                              }`}
                             />
+                            {formErrors.studentAge && (
+                              <p className="mt-1 text-xs text-red-600">{formErrors.studentAge}</p>
+                            )}
                           </div>
 
                           <div>
                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Level</label>
-                            <input
+                            <select
                               name="studentLevel"
-                              type="text"
                               value={formData.studentLevel}
                               onChange={handleFormChange}
                               className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                              placeholder="e.g., Beginner, Intermediate"
-                            />
+                            >
+                              <option value="">Select level</option>
+                              {CEFR_LEVEL_OPTIONS.map((level) => (
+                                <option key={level.value} value={level.value}>
+                                  {level.label}
+                                </option>
+                              ))}
+                            </select>
                           </div>
 
                           <div>
-                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                              Email <span className="text-red-500">*</span>
+                            </label>
                             <input
                               name="studentEmail"
                               type="email"
@@ -563,36 +638,39 @@ const SchoolStudents = () => {
                           </div>
 
                           <div>
-                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Phone</label>
-                            <input
-                              name="studentPhone"
-                              type="tel"
-                              value={formData.studentPhone}
-                              onChange={handleFormChange}
-                              className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Parent Name</label>
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                              Parent Name <span className="text-red-500">*</span>
+                            </label>
                             <input
                               name="parentName"
                               type="text"
                               value={formData.parentName}
                               onChange={handleFormChange}
-                              className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                              className={`w-full px-3 sm:px-4 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 ${
+                                formErrors.parentName ? 'border-red-500' : 'border-gray-300'
+                              }`}
                             />
+                            {formErrors.parentName && (
+                              <p className="mt-1 text-xs text-red-600">{formErrors.parentName}</p>
+                            )}
                           </div>
 
                           <div>
-                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Parent Contact</label>
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                              Parent Contact <span className="text-red-500">*</span>
+                            </label>
                             <input
                               name="parentContact"
                               type="text"
                               value={formData.parentContact}
                               onChange={handleFormChange}
-                              className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                              className={`w-full px-3 sm:px-4 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 ${
+                                formErrors.parentContact ? 'border-red-500' : 'border-gray-300'
+                              }`}
                             />
+                            {formErrors.parentContact && (
+                              <p className="mt-1 text-xs text-red-600">{formErrors.parentContact}</p>
+                            )}
                           </div>
                         </div>
 
@@ -655,6 +733,41 @@ const SchoolStudents = () => {
           </div>
         </main>
       </div>
+
+      {openActionMenuId &&
+        createPortal(
+          <div
+            className="fixed z-[10020] w-28 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+            style={{ top: `${menuPosition.top}px`, right: `${menuPosition.right}px` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const student = filteredStudents.find((s) => s.student_id === openActionMenuId);
+                  setOpenActionMenuId(null);
+                  if (student) handleEditClick(student);
+                }}
+                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const student = filteredStudents.find((s) => s.student_id === openActionMenuId);
+                  setOpenActionMenuId(null);
+                  if (student) handleDelete(student.student_id, student.student_name);
+                }}
+                className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100"
+              >
+                Delete
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Floating Hamburger Button */}
       <button

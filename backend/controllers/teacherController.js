@@ -434,7 +434,22 @@ export const getTeacherAppointments = async (req, res) => {
     
     const query = `
       SELECT 
-        a.*,
+        a.appointment_id,
+        a.user_id,
+        a.teacher_id,
+        a.meeting_id,
+        a.material_id,
+        a.appointment_date::text AS appointment_date,
+        a.appointment_time::text AS appointment_time,
+        a.class_type,
+        a.student_name,
+        a.student_age,
+        a.student_level,
+        a.additional_notes,
+        a.status,
+        a.approved_by,
+        a.created_at,
+        a.student_id,
         u.name as school_name,
         u.email as school_email
       FROM appointmenttbl a

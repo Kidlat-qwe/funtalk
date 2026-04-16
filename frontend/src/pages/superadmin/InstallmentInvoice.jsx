@@ -71,12 +71,17 @@ import { API_BASE_URL } from '@/config/api.js';
 /**
  * Progress uses patty-linked invoices (subscription or billing_type=patty). Falls back to latest invoice row.
  */
+function getExpectedInstallments(row) {
+  const months = Number(row?.billing_duration_months);
+  if (months === 3 || months === 6 || months === 12) return months;
+  return 12;
+}
+
 function getInstallmentProgress(row) {
+  const expectedInstallments = getExpectedInstallments(row);
   const total = Number(row.patty_inv_total) || 0;
   if (total > 0) {
     // UI: progress increases when an installment invoice is generated (not when paid).
-    // Monthly billing model → use a simple 12-month target for the progress indicator.
-    const expectedInstallments = 12;
     const paid = Number(row.patty_inv_paid) || 0;
     const pending = Number(row.patty_inv_pending) || 0;
     return {
@@ -90,7 +95,6 @@ function getInstallmentProgress(row) {
   if (row.last_invoice_number) {
     // Fallback: if backend counts are missing but at least one invoice exists,
     // progress should still increase on "generated invoice".
-    const expectedInstallments = 12;
     const st = String(row.last_invoice_status || '').toLowerCase();
     const paid = st === 'paid' ? 1 : 0;
     const pending = st === 'pending' ? 1 : 0;
@@ -112,7 +116,7 @@ function InstallmentProgressBar({ row }) {
     return <span className="text-xs text-gray-400">No invoices yet</span>;
   }
   const generated = Number(row.patty_inv_total) || 0;
-  const expectedInstallments = 12;
+  const expectedInstallments = getExpectedInstallments(row);
   return (
     <div className="w-full min-w-[190px] max-w-[260px] space-y-2">
       <div
@@ -362,7 +366,7 @@ const InstallmentInvoice = () => {
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Installment Invoice</h1>
                 <p className="mt-1 text-sm sm:text-base text-gray-600">
                   School accounts on <span className="font-medium">patty</span> (monthly installment) billing.
-                  Amounts are <span className="font-medium text-gray-800">per month</span>, not a single full payment.
+                  Amounts show the <span className="font-medium text-gray-800">total installment contract</span> and cycle progress.
                 </p>
               </div>
               <button
@@ -380,12 +384,12 @@ const InstallmentInvoice = () => {
             )}
 
             <div className="rounded-xl border border-blue-100/80 bg-gradient-to-br from-blue-50/90 via-white to-white p-4 sm:p-5 shadow-sm">
-              <h2 className="text-sm font-semibold text-blue-950">How monthly billing is calculated</h2>
+              <h2 className="text-sm font-semibold text-blue-950">How installment billing is calculated</h2>
               <p className="mt-2 text-xs sm:text-sm text-gray-700 leading-relaxed">
-                <span className="font-medium text-gray-900">Monthly amount</span> = monthly credits × rate per credit
+                <span className="font-medium text-gray-900">Total amount to pay</span> = total credits × rate per credit
                 (stored as{' '}
                 <code className="rounded bg-blue-100/80 px-1 py-0.5 text-[11px] sm:text-xs text-blue-900">base_amount</code> on
-                the Patty plan). Each billing period is one installment for that amount—not the full contract upfront.
+                the Patty plan). Each cycle invoice is computed from that total based on billing duration.
               </p>
             </div>
 
@@ -450,9 +454,8 @@ const InstallmentInvoice = () => {
                             </p>
                           </div>
                           <div>
-                            <span className="text-gray-500">Monthly amt.</span>
+                            <span className="text-gray-500">Total amount to pay</span>
                             <p className="font-semibold text-gray-900">{formatMoney(r.base_amount)}</p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">per month</p>
                             {r.credits_per_cycle != null && r.credit_rate != null && (
                               <p className="text-[10px] text-gray-400 mt-0.5">
                                 {r.credits_per_cycle} × {formatMoney(r.credit_rate)}
@@ -460,14 +463,14 @@ const InstallmentInvoice = () => {
                             )}
                           </div>
                           <div>
-                            <span className="text-gray-500">Credits / rate</span>
+                            <span className="text-gray-500">Total credits / rate</span>
                             <p className="font-medium">
                               {r.credits_per_cycle != null ? `${r.credits_per_cycle} @ ${formatMoney(r.credit_rate)}` : '—'}
                             </p>
                           </div>
                           <div>
-                            <span className="text-gray-500">Balance</span>
-                            <p className="font-medium">{r.current_balance != null ? r.current_balance : '—'}</p>
+                            <span className="text-gray-500">Total credits (allocated)</span>
+                            <p className="font-medium">{r.credits_per_cycle != null ? r.credits_per_cycle : '—'}</p>
                           </div>
                           <div>
                             <span className="text-gray-500">Last invoice</span>
@@ -528,7 +531,7 @@ const InstallmentInvoice = () => {
                             Plan / cycle
                           </th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Monthly amt.
+                            Total amount to pay
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[240px]">
                             Installment progress
@@ -540,7 +543,7 @@ const InstallmentInvoice = () => {
                             Status
                           </th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Credits
+                            Total credits
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Last invoice
@@ -567,7 +570,6 @@ const InstallmentInvoice = () => {
                             </td>
                             <td className="px-4 py-3 align-top text-right text-sm font-medium text-gray-900">
                               {formatMoney(r.base_amount)}
-                              <div className="text-[10px] font-normal text-gray-500 mt-0.5">per month</div>
                               {r.credits_per_cycle != null && r.credit_rate != null && (
                                 <div className="text-[10px] text-gray-400 mt-1 max-w-[11rem] ml-auto leading-tight">
                                   {r.credits_per_cycle} × {formatMoney(r.credit_rate)}
@@ -595,12 +597,8 @@ const InstallmentInvoice = () => {
                               )}
                             </td>
                             <td className="px-4 py-3 align-top text-right text-sm">
-                              <span className="text-gray-900">{r.current_balance != null ? r.current_balance : '—'}</span>
-                              {r.credits_per_cycle != null && (
-                                <div className="text-xs text-gray-500">
-                                  {r.credits_per_cycle}/mo @ {formatMoney(r.credit_rate)}
-                                </div>
-                              )}
+                              <span className="text-gray-900">{r.credits_per_cycle != null ? r.credits_per_cycle : '—'}</span>
+                              <div className="text-xs text-gray-500">Allocated at school creation</div>
                             </td>
                             <td className="px-4 py-3 align-top text-sm">
                               {r.last_invoice_number ? (

@@ -42,12 +42,29 @@ router.post(
   isSchool,
   [
     body('studentName').trim().notEmpty().withMessage('Student name is required'),
-    body('studentAge').optional({ nullable: true, checkFalsy: true }).isInt({ min: 1, max: 120 }),
+    body('studentAge')
+      .exists({ checkFalsy: true })
+      .withMessage('Age is required')
+      .isInt({ min: 1, max: 120 })
+      .withMessage('Age must be a whole number between 1 and 120'),
     body('studentLevel').optional({ nullable: true, checkFalsy: true }).isString(),
-    body('studentEmail').optional({ nullable: true, checkFalsy: true }).isEmail(),
+    body('studentEmail')
+      .trim()
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Please provide a valid email address'),
     body('studentPhone').optional({ nullable: true, checkFalsy: true }).isString(),
-    body('parentName').optional({ nullable: true, checkFalsy: true }).isString(),
-    body('parentContact').optional({ nullable: true, checkFalsy: true }).isString(),
+    body('parentName')
+      .trim()
+      .notEmpty()
+      .withMessage('Parent name is required')
+      .isString(),
+    body('parentContact')
+      .trim()
+      .notEmpty()
+      .withMessage('Parent contact is required')
+      .isString(),
     body('notes').optional({ nullable: true }).isString(),
     handleValidationErrors,
   ],
@@ -65,12 +82,29 @@ router.put(
   isSchool,
   [
     body('studentName').optional({ nullable: true, checkFalsy: true }).trim().notEmpty(),
-    body('studentAge').optional({ nullable: true, checkFalsy: true }).isInt({ min: 1, max: 120 }),
+    body('studentAge')
+      .exists({ checkFalsy: true })
+      .withMessage('Age is required')
+      .isInt({ min: 1, max: 120 })
+      .withMessage('Age must be a whole number between 1 and 120'),
     body('studentLevel').optional({ nullable: true, checkFalsy: true }).isString(),
-    body('studentEmail').optional({ nullable: true, checkFalsy: true }).isEmail(),
+    body('studentEmail')
+      .trim()
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Please provide a valid email address'),
     body('studentPhone').optional({ nullable: true, checkFalsy: true }).isString(),
-    body('parentName').optional({ nullable: true, checkFalsy: true }).isString(),
-    body('parentContact').optional({ nullable: true, checkFalsy: true }).isString(),
+    body('parentName')
+      .trim()
+      .notEmpty()
+      .withMessage('Parent name is required')
+      .isString(),
+    body('parentContact')
+      .trim()
+      .notEmpty()
+      .withMessage('Parent contact is required')
+      .isString(),
     body('notes').optional({ nullable: true }).isString(),
     body('isActive').optional().isBoolean(),
     handleValidationErrors,

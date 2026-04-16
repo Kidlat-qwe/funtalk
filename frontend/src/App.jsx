@@ -20,6 +20,7 @@ import TeacherProfile from './pages/teacher/teacherProfile';
 import SchoolDashboard from './pages/school/schoolDashboard';
 import SchoolStudents from './pages/school/schoolStudents';
 import SchoolBookings from './pages/school/schoolBookings';
+import SchoolMaterials from './pages/school/schoolMaterials';
 import SchoolPackages from './pages/school/schoolPackages';
 import SchoolCredits from './pages/school/schoolCredits';
 import SchoolReports from './pages/school/schoolReports';
@@ -57,6 +58,7 @@ function App() {
         <Route path="/school/dashboard" element={<SchoolDashboard />} />
         <Route path="/school/students" element={<SchoolStudents />} />
         <Route path="/school/bookings" element={<SchoolBookings />} />
+        <Route path="/school/materials" element={<SchoolMaterials />} />
         <Route path="/school/packages" element={<SchoolPackages />} />
         <Route path="/school/credits" element={<SchoolCredits />} />
         <Route path="/school/reports" element={<SchoolReports />} />

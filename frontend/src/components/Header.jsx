@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   EmailAuthProvider,
@@ -53,7 +53,7 @@ const Header = ({ user }) => {
     return `${days}d`;
   };
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -69,9 +69,9 @@ const Header = ({ user }) => {
       // silent: bell should not break header
       console.error('Unread count fetch failed:', e);
     }
-  };
+  }, []);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setIsNotifLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -89,7 +89,7 @@ const Header = ({ user }) => {
     } finally {
       setIsNotifLoading(false);
     }
-  };
+  }, []);
 
   const markReadAndGo = async (n) => {
     try {
@@ -105,6 +105,27 @@ const Header = ({ user }) => {
       if (n?.href) navigate(n.href);
       fetchUnreadCount();
       fetchNotifications();
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`${API_BASE_URL}/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setNotifications((prev) =>
+          prev.map((n) => (n.read_at ? n : { ...n, read_at: new Date().toISOString() }))
+        );
+        setUnreadCount(0);
+        fetchNotifications();
+      }
+    } catch (e) {
+      console.error('Mark all notifications read failed:', e);
     }
   };
 
@@ -255,9 +276,35 @@ const Header = ({ user }) => {
 
   useEffect(() => {
     fetchUnreadCount();
-    const id = window.setInterval(fetchUnreadCount, 30_000);
+    const id = window.setInterval(fetchUnreadCount, 15_000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    if (!isNotifOpen) return undefined;
+    fetchNotifications();
+    fetchUnreadCount();
+    const id = window.setInterval(() => {
+      fetchNotifications();
+      fetchUnreadCount();
+    }, 8_000);
+    return () => window.clearInterval(id);
+  }, [isNotifOpen, fetchNotifications, fetchUnreadCount]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchUnreadCount();
+        if (isNotifOpen) fetchNotifications();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [fetchNotifications, fetchUnreadCount, isNotifOpen]);
 
   return (
     <header className="bg-gradient-to-r from-[#A7816D] via-[#AF8F7E] to-[#B66681] shadow-soft border-b border-white/20 sticky top-0 z-50">
@@ -315,7 +362,17 @@ const Header = ({ user }) => {
                 <div className="absolute right-0 mt-2 w-[min(92vw,360px)] bg-white rounded-lg shadow-xl z-[120] border border-gray-200 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-gray-900">Notifications</p>
-                    <p className="text-xs text-gray-500">{unreadCount} unread</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-xs text-gray-500">{unreadCount} unread</p>
+                      <button
+                        type="button"
+                        onClick={markAllRead}
+                        disabled={unreadCount === 0}
+                        className="text-xs font-medium text-primary-600 hover:text-primary-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      >
+                        Mark all as read
+                      </button>
+                    </div>
                   </div>
                   <div className="max-h-[420px] overflow-y-auto">
                     {isNotifLoading ? (

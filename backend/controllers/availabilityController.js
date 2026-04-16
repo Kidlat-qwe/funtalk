@@ -1,32 +1,5 @@
 import { query } from '../config/database.js';
-
-const SLOT_MINUTES = 30;
-
-const toMinutes = (timeValue) => {
-  if (!timeValue) return null;
-  const raw = String(timeValue).substring(0, 5);
-  const [hours, minutes] = raw.split(':').map((v) => parseInt(v, 10));
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-  return hours * 60 + minutes;
-};
-
-const toHHMM = (minutes) => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-};
-
-const buildSlotsInRange = (startTime, endTime) => {
-  const start = toMinutes(startTime);
-  const end = toMinutes(endTime);
-  if (start === null || end === null || start >= end) return [];
-
-  const slots = [];
-  for (let m = start; m < end; m += SLOT_MINUTES) {
-    slots.push(toHHMM(m));
-  }
-  return slots;
-};
+import { computeAvailableSlotsDetailForTeacherDate } from '../utils/teacherSlotAvailability.js';
 
 /**
  * @desc    Get teacher's availability schedule
@@ -79,7 +52,7 @@ export const getTeacherAvailability = async (req, res) => {
 export const getAvailableSlots = async (req, res) => {
   try {
     const { teacherId } = req.params;
-    const { date } = req.query;
+    const { date, excludeAppointmentId, classType } = req.query;
     
     if (!date) {
       return res.status(400).json({
@@ -87,74 +60,28 @@ export const getAvailableSlots = async (req, res) => {
         message: 'Date parameter is required',
       });
     }
-    
-    // Get day of week (0 = Sunday, 6 = Saturday)
-    const dateObj = new Date(date);
-    const dayOfWeek = dateObj.getDay();
-    
-    // Get teacher's availability for this day
-    const availabilityQuery = `
-      SELECT start_time, end_time
-      FROM teacheravailabilitytbl
-      WHERE teacher_id = $1 AND day_of_week = $2 AND is_active = true
-    `;
-    
-    const availabilityResult = await query(availabilityQuery, [teacherId, dayOfWeek]);
-    
-    // Get exceptions (blocked times) for this date
-    const exceptionQuery = `
-      SELECT start_time, end_time
-      FROM teacheravailabilityexceptionstbl
-      WHERE teacher_id = $1 AND exception_date = $2 AND is_blocked = true
-    `;
-    
-    const exceptionResult = await query(exceptionQuery, [teacherId, date]);
-    
-    // Get existing appointments for this date
-    const appointmentQuery = `
-      SELECT appointment_time
-      FROM appointmenttbl
-      WHERE teacher_id = $1 AND appointment_date = $2 
-      AND status NOT IN ('cancelled', 'no_show')
-    `;
-    
-    const appointmentResult = await query(appointmentQuery, [teacherId, date]);
-    
-    const baseSlots = availabilityResult.rows.flatMap((row) =>
-      buildSlotsInRange(row.start_time, row.end_time)
+
+    const excludeId =
+      excludeAppointmentId != null && excludeAppointmentId !== ''
+        ? Number(excludeAppointmentId)
+        : undefined;
+    const detail = await computeAvailableSlotsDetailForTeacherDate(
+      (sql, params) => query(sql, params),
+      teacherId,
+      date,
+      {
+        ...(Number.isFinite(excludeId) ? { excludeAppointmentId: excludeId } : {}),
+        ...(classType ? { targetClassType: classType } : {}),
+      }
     );
-
-    const blockedAllDay = exceptionResult.rows.some(
-      (row) => !row.start_time && !row.end_time
-    );
-
-    const blockedSlotSet = new Set();
-    if (!blockedAllDay) {
-      exceptionResult.rows.forEach((row) => {
-        if (row.start_time && row.end_time) {
-          const exceptionSlots = buildSlotsInRange(row.start_time, row.end_time);
-          exceptionSlots.forEach((slot) => blockedSlotSet.add(slot));
-        }
-      });
-    }
-
-    const bookedSlotSet = new Set(
-      appointmentResult.rows
-        .map((apt) => String(apt.appointment_time || '').substring(0, 5))
-        .filter(Boolean)
-    );
-
-    const finalSlots = blockedAllDay
-      ? []
-      : baseSlots.filter((slot) => !blockedSlotSet.has(slot) && !bookedSlotSet.has(slot));
 
     res.status(200).json({
       success: true,
       data: {
-        slots: finalSlots,
-        availability: availabilityResult.rows,
-        exceptions: exceptionResult.rows,
-        bookedSlots: appointmentResult.rows.map(apt => apt.appointment_time),
+        slots: detail.slots,
+        availability: detail.availability,
+        exceptions: detail.exceptions,
+        bookedSlots: detail.bookedSlots,
       },
     });
   } catch (error) {

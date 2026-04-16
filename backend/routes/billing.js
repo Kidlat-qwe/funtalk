@@ -177,8 +177,8 @@ router.post(
   isAdmin,
   uploadReceipt.single('paymentAttachment'),
   [
-    body('paymentType').optional().isString(),
-    body('referenceNumber').optional().isString(),
+    body('paymentType').trim().notEmpty().withMessage('Payment type is required'),
+    body('referenceNumber').trim().notEmpty().withMessage('Reference number is required'),
     body('remarks').optional().isString(),
     handleValidationErrors,
   ],

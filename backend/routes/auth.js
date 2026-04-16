@@ -53,6 +53,8 @@ router.post(
     body('billingConfig.creditsPerCycle').optional().isInt({ min: 1 }),
     body('billingConfig.ratePerCredit').optional().isFloat({ min: 0 }),
     body('billingConfig.paymentDueDay').optional().isInt({ min: 1, max: 28 }),
+    body('billingConfig.billingDurationMonths').optional().isIn([3, 6, 12]),
+    body('billingConfig.penaltyPercentage').optional().isFloat({ min: 0, max: 100 }),
     body('billingConfig.graceDays').optional().isInt({ min: 0 }),
     body('billingConfig.rolloverEnabled').optional().isBoolean(),
     body('billingConfig.maxRolloverCredits').optional().isInt({ min: 0 }),

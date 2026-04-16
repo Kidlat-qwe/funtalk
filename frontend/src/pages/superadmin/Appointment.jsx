@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { BOOKING_TIME_OPTIONS } from '../../constants/bookingTimeOptions.js';
 import { API_BASE_URL } from '@/config/api.js';
+import {
+  normalizeAppointmentTimeHHMM,
+  toCalendarYyyyMmDd,
+} from '@/utils/appointmentCalendar.js';
 
 const DURATION_OPTIONS = [
   { value: '25', label: '25 mins (1 credit)' },
@@ -37,6 +41,45 @@ const TEACHER_REQUIREMENT_OPTIONS = [
   { value: 'intro_audio', label: 'Intro Audio' },
   { value: 'intro_text', label: 'Intro Text' },
 ];
+
+const SLOT_MINUTES = 30;
+
+const parseDurationMinutesFromNotes = (notes) => {
+  const m = String(notes ?? '').match(/Duration:\s*(\d+)\s*mins/i);
+  if (!m) return 25;
+  const mins = Number(m[1]);
+  return Number.isFinite(mins) && mins > 0 ? mins : 25;
+};
+
+const slotKeysForDuration = (startHHMM, durationMinutes) => {
+  const raw = String(startHHMM).substring(0, 5);
+  const [h, mi] = raw.split(':').map((v) => parseInt(v, 10));
+  if (Number.isNaN(h) || Number.isNaN(mi)) return [];
+  const start = h * 60 + mi;
+  const dm = Math.max(1, Number(durationMinutes) || 25);
+  const slotCount = Math.ceil(dm / SLOT_MINUTES);
+  const keys = [];
+  for (let i = 0; i < slotCount; i++) {
+    const m = start + i * SLOT_MINUTES;
+    const hh = Math.floor(m / 60);
+    const mm = m % 60;
+    keys.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+  }
+  return keys;
+};
+
+const slotsCoverBooking = (availableSlots, startHHMM, durationMinutes) => {
+  const needed = slotKeysForDuration(startHHMM, durationMinutes);
+  if (needed.length === 0) return false;
+  const set = new Set(availableSlots.map((s) => normalizeAppointmentTimeHHMM(s)));
+  return needed.every((k) => set.has(k));
+};
+
+const normalizeClassType = (classType) => {
+  const v = String(classType ?? '').trim().toLowerCase();
+  if (v === 'group' || v === 'one_on_one' || v === 'vip') return v;
+  return '';
+};
 
 const Appointment = () => {
   const navigate = useNavigate();
@@ -82,6 +125,9 @@ const Appointment = () => {
   });
   const [approveError, setApproveError] = useState('');
   const [isApproving, setIsApproving] = useState(false);
+  const [approvalAvailableTeacherIds, setApprovalAvailableTeacherIds] = useState([]);
+  const [isCheckingApprovalTeacherAvailability, setIsCheckingApprovalTeacherAvailability] =
+    useState(false);
   /** 'active' = pending, approved, no_show. 'history' = completed, cancelled only. */
   const [appointmentsTab, setAppointmentsTab] = useState('active');
   const [detailViewAppointment, setDetailViewAppointment] = useState(null);
@@ -287,10 +333,12 @@ const Appointment = () => {
     });
   };
 
-  // Format time for display
+  // Format time for display (handles "HH:MM:SS" or ISO datetime from API)
   const formatTime = (timeString) => {
     if (!timeString) return 'N/A';
-    const [hours, minutes] = timeString.split(':');
+    const hhmm = normalizeAppointmentTimeHHMM(timeString);
+    if (!hhmm) return 'N/A';
+    const [hours, minutes] = hhmm.split(':');
     const hour = parseInt(hours, 10);
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
@@ -499,45 +547,115 @@ const Appointment = () => {
     }
   };
 
-  const checkAvailableTeachers = useCallback(async (dateValue, timeValue) => {
-    if (!dateValue || !timeValue || teachers.length === 0) {
-      setAvailableTeacherIds([]);
-      return;
-    }
+  const checkAvailableTeachers = useCallback(
+    async (dateValue, timeValue, durationMinutes, classType) => {
+      const ymd = toCalendarYyyyMmDd(dateValue);
+      const timeNorm = normalizeAppointmentTimeHHMM(timeValue);
+      const dm = Math.max(1, Number(durationMinutes) || 25);
+      const normalizedClassType = normalizeClassType(classType);
+      if (!ymd || !timeNorm || !normalizedClassType || teachers.length === 0) {
+        setAvailableTeacherIds([]);
+        return;
+      }
 
-    setIsCheckingTeacherAvailability(true);
-    try {
-      const token = localStorage.getItem('token');
-      const checks = teachers.map(async (teacher) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/availability/teacher/${teacher.teacher_id}/available-slots?date=${dateValue}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          const data = await response.json();
-          const slots = data.success && data.data?.slots ? data.data.slots : [];
-          return slots.includes(timeValue) ? teacher.teacher_id : null;
-        } catch (error) {
-          console.error('Error checking teacher availability:', error);
-          return null;
-        }
-      });
+      setIsCheckingTeacherAvailability(true);
+      try {
+        const token = localStorage.getItem('token');
+        const checks = teachers.map(async (teacher) => {
+          try {
+            const response = await fetch(
+              `${API_BASE_URL}/availability/teacher/${teacher.teacher_id}/available-slots?date=${encodeURIComponent(ymd)}&classType=${encodeURIComponent(normalizedClassType)}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            const data = await response.json();
+            const slots = data.success && data.data?.slots ? data.data.slots : [];
+            return slotsCoverBooking(slots, timeNorm, dm) ? teacher.teacher_id : null;
+          } catch (error) {
+            console.error('Error checking teacher availability:', error);
+            return null;
+          }
+        });
 
-      const results = await Promise.all(checks);
-      setAvailableTeacherIds(results.filter((id) => id !== null));
-    } finally {
-      setIsCheckingTeacherAvailability(false);
-    }
-  }, [teachers]);
+        const results = await Promise.all(checks);
+        setAvailableTeacherIds(results.filter((id) => id !== null));
+      } finally {
+        setIsCheckingTeacherAvailability(false);
+      }
+    },
+    [teachers]
+  );
+
+  const checkApprovalAvailableTeachers = useCallback(
+    async (appointment) => {
+      if (!appointment) {
+        setApprovalAvailableTeacherIds([]);
+        setIsCheckingApprovalTeacherAvailability(false);
+        return;
+      }
+      const ymd = toCalendarYyyyMmDd(appointment.appointment_date);
+      const timeNorm = normalizeAppointmentTimeHHMM(appointment.appointment_time);
+      const dm = parseDurationMinutesFromNotes(appointment.additional_notes);
+      const normalizedClassType = normalizeClassType(appointment.class_type);
+      if (!ymd || !timeNorm || !normalizedClassType || teachers.length === 0) {
+        setApprovalAvailableTeacherIds([]);
+        setIsCheckingApprovalTeacherAvailability(false);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        const checks = teachers.map(async (teacher) => {
+          try {
+            const exclude =
+              appointment.appointment_id != null
+                ? `&excludeAppointmentId=${encodeURIComponent(String(appointment.appointment_id))}`
+                : '';
+            const response = await fetch(
+              `${API_BASE_URL}/availability/teacher/${teacher.teacher_id}/available-slots?date=${encodeURIComponent(ymd)}${exclude}&classType=${encodeURIComponent(normalizedClassType)}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            const data = await response.json();
+            const slots = data.success && data.data?.slots ? data.data.slots : [];
+            return slotsCoverBooking(slots, timeNorm, dm) ? teacher.teacher_id : null;
+          } catch (error) {
+            console.error('Error checking teacher availability for approval:', error);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(checks);
+        setApprovalAvailableTeacherIds(results.filter((id) => id !== null));
+      } finally {
+        setIsCheckingApprovalTeacherAvailability(false);
+      }
+    },
+    [teachers]
+  );
 
   useEffect(() => {
     if (!isModalOpen) return;
-    checkAvailableTeachers(formData.appointmentDate, formData.appointmentTime);
-  }, [isModalOpen, formData.appointmentDate, formData.appointmentTime, checkAvailableTeachers]);
+    checkAvailableTeachers(
+      formData.appointmentDate,
+      formData.appointmentTime,
+      formData.duration,
+      formData.classType
+    );
+  }, [
+    isModalOpen,
+    formData.appointmentDate,
+    formData.appointmentTime,
+    formData.duration,
+    formData.classType,
+    checkAvailableTeachers,
+  ]);
 
   useEffect(() => {
     if (!formData.teacherId) return;
@@ -553,6 +671,52 @@ const Appointment = () => {
     return teachers.filter((teacher) => availableTeacherIds.includes(teacher.teacher_id));
   }, [teachers, availableTeacherIds, formData.appointmentDate, formData.appointmentTime]);
 
+  const approvalSelectableTeachers = useMemo(() => {
+    if (!selectedApprovalAppointment) return [];
+    if (approvalAvailableTeacherIds.length === 0) return [];
+    return teachers.filter((teacher) => approvalAvailableTeacherIds.includes(teacher.teacher_id));
+  }, [teachers, approvalAvailableTeacherIds, selectedApprovalAppointment]);
+
+  useLayoutEffect(() => {
+    if (!isApproveModalOpen || approveStep !== 2 || !selectedApprovalAppointment) {
+      return;
+    }
+    setIsCheckingApprovalTeacherAvailability(true);
+  }, [isApproveModalOpen, approveStep, selectedApprovalAppointment]);
+
+  useEffect(() => {
+    if (!isApproveModalOpen || approveStep !== 2 || !selectedApprovalAppointment) return;
+    checkApprovalAvailableTeachers(selectedApprovalAppointment);
+  }, [
+    isApproveModalOpen,
+    approveStep,
+    selectedApprovalAppointment,
+    checkApprovalAvailableTeachers,
+  ]);
+
+  useEffect(() => {
+    if (!approveForm.teacherId) return;
+    if (approveStep !== 2) return;
+    if (isCheckingApprovalTeacherAvailability) return;
+    const selectedId = Number(approveForm.teacherId);
+    if (Number.isNaN(selectedId)) {
+      setApproveForm((prev) => ({ ...prev, teacherId: '' }));
+      return;
+    }
+    if (approvalAvailableTeacherIds.length === 0) {
+      setApproveForm((prev) => ({ ...prev, teacherId: '' }));
+      return;
+    }
+    if (!approvalAvailableTeacherIds.includes(selectedId)) {
+      setApproveForm((prev) => ({ ...prev, teacherId: '' }));
+    }
+  }, [
+    approvalAvailableTeacherIds,
+    approveForm.teacherId,
+    approveStep,
+    isCheckingApprovalTeacherAvailability,
+  ]);
+
   // Handle status change
   const handleStatusChange = async (appointmentId, newStatus) => {
     const appointment = filteredAppointments.find((item) => item.appointment_id === appointmentId);
@@ -566,6 +730,7 @@ const Appointment = () => {
       setSelectedApprovalAppointment(appointment);
       setApproveStep(1);
       setApproveError('');
+      setApprovalAvailableTeacherIds([]);
       setApproveForm({
         teacherId: appointment.teacher_id ? String(appointment.teacher_id) : '',
         meetingLink: appointment.meeting_link || '',
@@ -1548,6 +1713,10 @@ const Appointment = () => {
                     <div><span className="font-medium text-gray-700">School:</span> {selectedApprovalAppointment.school_name || 'N/A'}</div>
                     <div><span className="font-medium text-gray-700">Date:</span> {formatDate(selectedApprovalAppointment.appointment_date)}</div>
                     <div><span className="font-medium text-gray-700">Time:</span> {formatTime(selectedApprovalAppointment.appointment_time)}</div>
+                    <div>
+                      <span className="font-medium text-gray-700">Duration:</span>{' '}
+                      {parseDurationMinutesFromNotes(selectedApprovalAppointment.additional_notes)} mins
+                    </div>
                     <div><span className="font-medium text-gray-700">Class Type:</span> {selectedApprovalAppointment.class_type || '-'}</div>
                     <div><span className="font-medium text-gray-700">Material:</span> {selectedApprovalAppointment.material_name || '-'}</div>
                   </div>
@@ -1568,20 +1737,39 @@ const Appointment = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  <p className="text-xs text-gray-600">
+                    Only teachers who are free for this booking&apos;s date, start time, and duration are listed.
+                  </p>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Assign Teacher</label>
-                    <select
-                      value={approveForm.teacherId}
-                      onChange={(e) => setApproveForm((prev) => ({ ...prev, teacherId: e.target.value }))}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    >
-                      <option value="">Select teacher</option>
-                      {teachers.map((teacher) => (
-                        <option key={teacher.teacher_id} value={teacher.teacher_id}>
-                          {teacher.fullname || teacher.email}
+                    {isCheckingApprovalTeacherAvailability ? (
+                      <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-600">
+                        Checking who is available for this slot…
+                      </div>
+                    ) : (
+                      <select
+                        value={approveForm.teacherId}
+                        onChange={(e) => setApproveForm((prev) => ({ ...prev, teacherId: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="">
+                          {approvalSelectableTeachers.length === 0
+                            ? 'No teachers available for this slot'
+                            : 'Select teacher'}
                         </option>
-                      ))}
-                    </select>
+                        {approvalSelectableTeachers.map((teacher) => (
+                          <option key={teacher.teacher_id} value={teacher.teacher_id}>
+                            {teacher.fullname || teacher.email}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {!isCheckingApprovalTeacherAvailability && approvalSelectableTeachers.length === 0 && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        No teacher has this window open on their schedule (or all are already booked). Ask the school to pick
+                        another time or update teacher availability.
+                      </p>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">

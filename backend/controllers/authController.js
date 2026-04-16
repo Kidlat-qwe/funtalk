@@ -218,11 +218,12 @@ export const register = async (req, res) => {
 
     const newUser = userResult.rows[0];
 
-    // If user is a school, create credits record
+    // If user is a school, create a fixed credit allocation (set once at creation).
     if (userType === 'school') {
+      const fixedCredits = Math.max(0, Number(billingConfig?.creditsPerCycle || 0));
       await client.query(
         'INSERT INTO creditstbl (user_id, current_balance) VALUES ($1, $2)',
-        [newUser.user_id, 0]
+        [newUser.user_id, fixedCredits]
       );
       // Patty subscription is applied AFTER COMMIT — upsertPattySubscription uses its own DB
       // connection; FK to userstbl is only visible to other sessions after commit.
@@ -243,12 +244,14 @@ export const register = async (req, res) => {
     if (userType === 'school' && (billingType || '').toLowerCase() === 'patty') {
       try {
         await ensureSubscriptionSchema();
-        const subscription = await upsertPattySubscription({
+        await upsertPattySubscription({
           userId: newUser.user_id,
           planName: billingConfig?.planName || `${name} Patty Plan`,
           creditsPerCycle: Number(billingConfig?.creditsPerCycle || 20),
           creditRate: Number(billingConfig?.ratePerCredit || 5),
           paymentDueDay: Number(billingConfig?.paymentDueDay || 1),
+          billingDurationMonths: Number(billingConfig?.billingDurationMonths || 12),
+          penaltyPercentage: Number(billingConfig?.penaltyPercentage || 10),
           graceDays: Number(billingConfig?.graceDays || 7),
           rolloverEnabled: billingConfig?.rolloverEnabled !== undefined ? Boolean(billingConfig.rolloverEnabled) : true,
           maxRolloverCredits: Number(billingConfig?.maxRolloverCredits || 100),
@@ -256,84 +259,10 @@ export const register = async (req, res) => {
           startDate: billingConfig?.startDate || null,
         });
 
-        const subDetail = await query(
-          `SELECT s.subscription_id, s.current_cycle_start, s.current_cycle_end, s.next_due_date, p.base_amount, p.credits_per_cycle
-           FROM subscriptionscheduletbl s
-           LEFT JOIN subscriptionplantbl p ON p.plan_id = s.plan_id
-           WHERE s.subscription_id = $1`,
-          [subscription.subscriptionId]
-        );
-        const sub = subDetail.rows[0];
-        const baseAmount = Number(sub?.base_amount || 0);
-        /** Monthly installment: first period is pending until paid; credits start immediately so the school can book classes. */
-        const pattyInvoiceAmount = baseAmount;
-        const pattyInvoiceStatus = 'pending';
-        const billingRow = await query(
-          `INSERT INTO billingtbl (user_id, package_id, billing_type, amount, status)
-           VALUES ($1, NULL, $2, $3, 'pending')
-           RETURNING billing_id`,
-          [newUser.user_id, 'patty', pattyInvoiceAmount]
-        );
-        const billingId = billingRow.rows[0].billing_id;
-
-        const invoiceResult = await query(
-          `INSERT INTO invoicetbl (
-             billing_id, user_id, invoice_number, description, due_date, amount, status,
-             subscription_id, cycle_start, cycle_end, receipt_url
-           ) VALUES (
-             $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10
-           )
-           RETURNING invoice_id`,
-          [
-            billingId,
-            newUser.user_id,
-            'patty_first_cycle_invoice',
-            sub?.next_due_date || null,
-            pattyInvoiceAmount,
-            pattyInvoiceStatus,
-            sub?.subscription_id || null,
-            sub?.current_cycle_start || null,
-            sub?.current_cycle_end || null,
-            null,
-          ]
-        );
-        await query(
-          'UPDATE invoicetbl SET invoice_number = $1 WHERE invoice_id = $2',
-          [`INV-${invoiceResult.rows[0].invoice_id}`, invoiceResult.rows[0].invoice_id]
-        );
-
-        const invoiceId = invoiceResult.rows[0].invoice_id;
-        const allocation = Number(sub?.credits_per_cycle || billingConfig?.creditsPerCycle || 0);
-        const existingTx = await query(
-          `SELECT transaction_id FROM credittransactionstbl
-           WHERE user_id = $1 AND transaction_type = 'purchase' AND description = $2`,
-          [newUser.user_id, `patty_signup_allocation invoice_id=${invoiceId}`]
-        );
-        if (existingTx.rows.length === 0 && allocation > 0) {
-          const currentBalanceResult = await query(
-            'SELECT current_balance FROM creditstbl WHERE user_id = $1',
-            [newUser.user_id]
-          );
-          const before = Number(currentBalanceResult.rows[0]?.current_balance || 0);
-          const after = before + allocation;
-          await query(
-            'UPDATE creditstbl SET current_balance = $1, last_updated = CURRENT_TIMESTAMP WHERE user_id = $2',
-            [after, newUser.user_id]
-          );
-          await query(
-            `INSERT INTO credittransactionstbl (
-               user_id, transaction_type, amount, balance_before, balance_after, description, created_by
-             ) VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
-            [
-              newUser.user_id,
-              allocation,
-              before,
-              after,
-              `patty_signup_allocation invoice_id=${invoiceId}`,
-              req.user?.userId || null,
-            ]
-          );
-        }
+        // No forced first-cycle invoice at signup.
+        // Monthly Patty invoices are generated by subscription cycle runner:
+        // - auto: 7 days before due date
+        // - manual: Generate action in billing page
       } catch (subError) {
         console.error('Patty subscription setup failed after user create:', subError);
         return res.status(500).json({
@@ -392,32 +321,7 @@ export const register = async (req, res) => {
           attachmentUrl: receiptUrl,
         });
 
-        if (normalizedPaymentStatus === 'paid') {
-          const txDesc = `invoice_payment_allocation invoice_id=${invoiceResult.rows[0].invoice_id}`;
-          const existingTx = await query(
-            `SELECT transaction_id FROM credittransactionstbl
-             WHERE user_id = $1 AND transaction_type = 'purchase' AND description = $2`,
-            [newUser.user_id, txDesc]
-          );
-          if (existingTx.rows.length === 0) {
-            const currentBalanceResult = await query(
-              'SELECT current_balance FROM creditstbl WHERE user_id = $1',
-              [newUser.user_id]
-            );
-            const before = Number(currentBalanceResult.rows[0]?.current_balance || 0);
-            const after = before + credits;
-            await query(
-              'UPDATE creditstbl SET current_balance = $1, last_updated = CURRENT_TIMESTAMP WHERE user_id = $2',
-              [after, newUser.user_id]
-            );
-            await query(
-              `INSERT INTO credittransactionstbl (
-                 user_id, transaction_type, amount, balance_before, balance_after, description, created_by
-               ) VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
-              [newUser.user_id, credits, before, after, txDesc, req.user?.userId || null]
-            );
-          }
-        }
+        // Invoice/payment does not change credits. Credits are fixed at user creation.
       } catch (exploreError) {
         console.error('Explore billing setup failed after user create:', exploreError);
         return res.status(500).json({

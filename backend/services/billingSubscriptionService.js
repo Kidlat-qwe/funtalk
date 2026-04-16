@@ -2,6 +2,8 @@ import { getClient, query } from '../config/database.js';
 import { createNotification, ensureNotificationSchema } from './notificationService.js';
 
 const PATTY_BILLING_TYPE = 'patty';
+const DEFAULT_BILLING_DURATION_MONTHS = 12;
+const DEFAULT_PENALTY_PERCENTAGE = 10;
 
 const formatLocalDate = (date) => {
   const year = date.getFullYear();
@@ -70,6 +72,18 @@ const computeDueDate = (cycleStart, paymentDueDay) => {
   return toIsoDate(due);
 };
 
+const normalizeBillingDurationMonths = (value) => {
+  const v = Number(value);
+  if (v === 3 || v === 6 || v === 12) return v;
+  return DEFAULT_BILLING_DURATION_MONTHS;
+};
+
+const normalizePenaltyPercentage = (value) => {
+  const v = Number(value);
+  if (!Number.isFinite(v)) return DEFAULT_PENALTY_PERCENTAGE;
+  return Math.max(0, Math.min(100, v));
+};
+
 export const ensureSubscriptionSchema = async () => {
   const client = await getClient();
   try {
@@ -104,6 +118,8 @@ export const ensureSubscriptionSchema = async () => {
         current_cycle_end DATE NOT NULL,
         next_due_date DATE NOT NULL,
         payment_due_day INTEGER NOT NULL DEFAULT 1 CHECK (payment_due_day BETWEEN 1 AND 28),
+        billing_duration_months INTEGER NOT NULL DEFAULT 12 CHECK (billing_duration_months IN (3, 6, 12)),
+        penalty_percentage NUMERIC(5,2) NOT NULL DEFAULT 10 CHECK (penalty_percentage >= 0 AND penalty_percentage <= 100),
         grace_days INTEGER NOT NULL DEFAULT 0 CHECK (grace_days >= 0),
         auto_renew BOOLEAN NOT NULL DEFAULT true,
         rollover_enabled BOOLEAN NOT NULL DEFAULT true,
@@ -122,6 +138,35 @@ export const ensureSubscriptionSchema = async () => {
     await client.query(`ALTER TABLE invoicetbl ADD COLUMN IF NOT EXISTS cycle_end DATE`);
     await client.query(`ALTER TABLE invoicetbl ADD COLUMN IF NOT EXISTS overdue_since DATE`);
     await client.query(`ALTER TABLE invoicetbl ADD COLUMN IF NOT EXISTS receipt_url TEXT`);
+    await client.query(
+      `ALTER TABLE subscriptionscheduletbl
+       ADD COLUMN IF NOT EXISTS penalty_percentage NUMERIC(5,2) NOT NULL DEFAULT 10`
+    );
+    await client.query(
+      `ALTER TABLE subscriptionscheduletbl
+       DROP CONSTRAINT IF EXISTS subscriptionscheduletbl_penalty_percentage_check`
+    );
+    await client.query(
+      `ALTER TABLE subscriptionscheduletbl
+       ADD CONSTRAINT subscriptionscheduletbl_penalty_percentage_check
+       CHECK (penalty_percentage >= 0 AND penalty_percentage <= 100)`
+    );
+    await client.query(`ALTER TABLE invoicetbl ADD COLUMN IF NOT EXISTS penalty_rate NUMERIC(5,2) NOT NULL DEFAULT 0`);
+    await client.query(`ALTER TABLE invoicetbl ADD COLUMN IF NOT EXISTS penalty_amount NUMERIC(12,2) NOT NULL DEFAULT 0`);
+    await client.query(`ALTER TABLE invoicetbl ADD COLUMN IF NOT EXISTS penalty_applied_at TIMESTAMP NULL`);
+    await client.query(
+      `ALTER TABLE subscriptionscheduletbl
+       ADD COLUMN IF NOT EXISTS billing_duration_months INTEGER NOT NULL DEFAULT 12`
+    );
+    await client.query(
+      `ALTER TABLE subscriptionscheduletbl
+       DROP CONSTRAINT IF EXISTS subscriptionscheduletbl_billing_duration_months_check`
+    );
+    await client.query(
+      `ALTER TABLE subscriptionscheduletbl
+       ADD CONSTRAINT subscriptionscheduletbl_billing_duration_months_check
+       CHECK (billing_duration_months IN (3, 6, 12))`
+    );
 
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_invoicetbl_subscription_cycle
@@ -186,7 +231,11 @@ export const upsertPattySubscription = async ({
   maxRolloverCredits = 0,
   autoRenew = true,
   startDate,
+  billingDurationMonths = DEFAULT_BILLING_DURATION_MONTHS,
+  penaltyPercentage = DEFAULT_PENALTY_PERCENTAGE,
 }) => {
+  const normalizedDurationMonths = normalizeBillingDurationMonths(billingDurationMonths);
+  const normalizedPenaltyPercentage = normalizePenaltyPercentage(penaltyPercentage);
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -218,14 +267,27 @@ export const upsertPattySubscription = async ({
              billing_type = $2,
              status = 'active',
              payment_due_day = $3,
-             grace_days = $4,
-             rollover_enabled = $5,
-             max_rollover_credits = $6,
-             auto_renew = $7,
+            billing_duration_months = $4,
+            penalty_percentage = $5,
+            grace_days = $6,
+            rollover_enabled = $7,
+            max_rollover_credits = $8,
+            auto_renew = $9,
              updated_at = CURRENT_TIMESTAMP
-         WHERE user_id = $8
+         WHERE user_id = $10
          RETURNING subscription_id`,
-        [planId, PATTY_BILLING_TYPE, paymentDueDay, graceDays, rolloverEnabled, maxRolloverCredits, autoRenew, userId]
+        [
+          planId,
+          PATTY_BILLING_TYPE,
+          paymentDueDay,
+          normalizedDurationMonths,
+          normalizedPenaltyPercentage,
+          graceDays,
+          rolloverEnabled,
+          maxRolloverCredits,
+          autoRenew,
+          userId,
+        ]
       );
       subscriptionId = updated.rows[0].subscription_id;
     } else {
@@ -233,8 +295,8 @@ export const upsertPattySubscription = async ({
         `INSERT INTO subscriptionscheduletbl (
           user_id, plan_id, billing_type, status, start_date,
           current_cycle_start, current_cycle_end, next_due_date,
-          payment_due_day, grace_days, auto_renew, rollover_enabled, max_rollover_credits
-        ) VALUES ($1,$2,$3,'active',$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          payment_due_day, billing_duration_months, penalty_percentage, grace_days, auto_renew, rollover_enabled, max_rollover_credits
+        ) VALUES ($1,$2,$3,'active',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
         RETURNING subscription_id`,
         [
           userId,
@@ -245,6 +307,8 @@ export const upsertPattySubscription = async ({
           cycleEnd,
           dueDate,
           paymentDueDay,
+          normalizedDurationMonths,
+          normalizedPenaltyPercentage,
           graceDays,
           autoRenew,
           rolloverEnabled,
@@ -264,46 +328,6 @@ export const upsertPattySubscription = async ({
   }
 };
 
-const applyCreditTransaction = async ({
-  client,
-  userId,
-  amount,
-  transactionType,
-  description,
-  createdBy,
-}) => {
-  const creditRow = await client.query(
-    'SELECT current_balance FROM creditstbl WHERE user_id = $1 FOR UPDATE',
-    [userId]
-  );
-  if (creditRow.rows.length === 0) {
-    await client.query(
-      'INSERT INTO creditstbl (user_id, current_balance) VALUES ($1, 0)',
-      [userId]
-    );
-  }
-
-  const currentResult = await client.query(
-    'SELECT current_balance FROM creditstbl WHERE user_id = $1 FOR UPDATE',
-    [userId]
-  );
-  const before = Number(currentResult.rows[0]?.current_balance || 0);
-  const after = before + Number(amount);
-
-  await client.query(
-    'UPDATE creditstbl SET current_balance = $1, last_updated = CURRENT_TIMESTAMP WHERE user_id = $2',
-    [after, userId]
-  );
-
-  const tx = await client.query(
-    `INSERT INTO credittransactionstbl (
-      user_id, transaction_type, amount, balance_before, balance_after, description, created_by
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING transaction_id`,
-    [userId, transactionType, Math.abs(Number(amount)), before, after, description || null, createdBy || null]
-  );
-  return { transactionId: tx.rows[0].transaction_id, before, after };
-};
-
 export const runCycleForSubscription = async (subscriptionId, actorUserId = null, opts = {}) => {
   const client = await getClient();
   try {
@@ -321,9 +345,39 @@ export const runCycleForSubscription = async (subscriptionId, actorUserId = null
       throw new Error('Subscription not found');
     }
     const sub = subResult.rows[0];
+    const normalizedPenaltyPercentage = normalizePenaltyPercentage(sub.penalty_percentage);
     if (sub.status !== 'active') {
       await client.query('COMMIT');
       return { skipped: true, reason: 'inactive_subscription' };
+    }
+
+    const overdueInvoice = await client.query(
+      `SELECT invoice_id, amount
+       FROM invoicetbl
+       WHERE subscription_id = $1
+         AND status = 'pending'
+         AND penalty_applied_at IS NULL
+         AND due_date IS NOT NULL
+         AND (due_date + make_interval(days => $2::int)) < CURRENT_DATE
+       ORDER BY due_date ASC, invoice_id ASC
+       FOR UPDATE`,
+      [subscriptionId, Number(sub.grace_days || 0)]
+    );
+    if (overdueInvoice.rows.length > 0 && normalizedPenaltyPercentage > 0) {
+      for (const inv of overdueInvoice.rows) {
+        const base = Number(inv.amount || 0);
+        const penaltyAmount = Number(((base * normalizedPenaltyPercentage) / 100).toFixed(2));
+        const finalAmount = Number((base + penaltyAmount).toFixed(2));
+        await client.query(
+          `UPDATE invoicetbl
+           SET amount = $1,
+               penalty_rate = $2,
+               penalty_amount = $3,
+               penalty_applied_at = CURRENT_TIMESTAMP
+           WHERE invoice_id = $4`,
+          [finalAmount, normalizedPenaltyPercentage, penaltyAmount, inv.invoice_id]
+        );
+      }
     }
 
     let cycleStart = sub.current_cycle_start;
@@ -400,25 +454,16 @@ export const runCycleForSubscription = async (subscriptionId, actorUserId = null
       }
     }
 
-    const creditInfo = await client.query(
-      'SELECT current_balance FROM creditstbl WHERE user_id = $1 FOR UPDATE',
-      [sub.user_id]
-    );
-    const existingBalance = Number(creditInfo.rows[0]?.current_balance || 0);
-    const carryIn = sub.rollover_enabled
-      ? Math.min(existingBalance, Number(sub.max_rollover_credits || 0))
-      : 0;
-    const allocation = Number(sub.credits_per_cycle || 0);
-    const newBalance = carryIn + allocation;
-
     // Use computed due date for the chosen cycle (avoid stale next_due_date after manual advancement)
     const dueDate = computeDueDate(cycleStart, sub.payment_due_day);
     const baseAmount = Number(sub.base_amount || 0);
+    const billingDurationMonths = normalizeBillingDurationMonths(sub.billing_duration_months);
+    const monthlyAmount = Number((baseAmount / billingDurationMonths).toFixed(2));
     const billingRow = await client.query(
       `INSERT INTO billingtbl (user_id, package_id, billing_type, amount, status)
        VALUES ($1, NULL, $2, $3, 'pending')
        RETURNING billing_id`,
-      [sub.user_id, PATTY_BILLING_TYPE, baseAmount]
+      [sub.user_id, PATTY_BILLING_TYPE, monthlyAmount]
     );
     const billingId = billingRow.rows[0].billing_id;
     const invoiceInsert = await client.query(
@@ -433,7 +478,7 @@ export const runCycleForSubscription = async (subscriptionId, actorUserId = null
         sub.user_id,
         `Patty monthly billing for cycle ${cycleStart} to ${cycleEnd}`,
         dueDate,
-        baseAmount,
+        monthlyAmount,
         subscriptionId,
         cycleStart,
         cycleEnd,
@@ -473,32 +518,6 @@ export const runCycleForSubscription = async (subscriptionId, actorUserId = null
       console.error('Notification create failed:', e);
     }
 
-    if (creditInfo.rows.length === 0) {
-      await client.query(
-        'INSERT INTO creditstbl (user_id, current_balance, last_updated) VALUES ($1, $2, CURRENT_TIMESTAMP)',
-        [sub.user_id, newBalance]
-      );
-    } else {
-      await client.query(
-        'UPDATE creditstbl SET current_balance = $1, last_updated = CURRENT_TIMESTAMP WHERE user_id = $2',
-        [newBalance, sub.user_id]
-      );
-    }
-
-    await client.query(
-      `INSERT INTO credittransactionstbl (
-        user_id, transaction_type, amount, balance_before, balance_after, description, created_by
-      ) VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
-      [
-        sub.user_id,
-        allocation,
-        existingBalance,
-        newBalance,
-        `monthly_allocation cycle=${cycleStart} carry_in=${carryIn}`,
-        actorUserId,
-      ]
-    );
-
     const nextCycleStart = addMonthsKeepDay(cycleStart, 1);
     const nextCycleEnd = computeCycleEnd(nextCycleStart);
     const nextDueDate = computeDueDate(nextCycleStart, sub.payment_due_day);
@@ -514,7 +533,7 @@ export const runCycleForSubscription = async (subscriptionId, actorUserId = null
     );
 
     await client.query('COMMIT');
-    return { skipped: false, subscriptionId, cycleStart, allocation, carryIn, newBalance };
+    return { skipped: false, subscriptionId, cycleStart };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -528,7 +547,7 @@ export const runDueCycles = async (actorUserId = null) => {
     `SELECT subscription_id
      FROM subscriptionscheduletbl
      WHERE status = 'active'
-       AND current_cycle_end < CURRENT_DATE`
+      AND CURRENT_DATE >= (next_due_date - INTERVAL '7 days')`
   );
   const results = [];
   for (const row of dueSubs.rows) {
@@ -556,6 +575,7 @@ export const listSubscriptionsWithStatus = async () => {
       s.next_due_date,
       s.grace_days,
       s.payment_due_day,
+      s.billing_duration_months,
       s.rollover_enabled,
       s.max_rollover_credits,
       p.plan_name,
@@ -588,6 +608,7 @@ export const getSubscriptionStatusByUserId = async (userId) => {
       s.next_due_date,
       s.grace_days,
       s.payment_due_day,
+      s.billing_duration_months,
       p.plan_name,
       p.credits_per_cycle,
       p.credit_rate,
@@ -637,9 +658,18 @@ export const getPattyInstallmentSummary = async (userId, subscriptionRow = null)
   const paymentProgressPercent =
     denom > 0 ? Math.round((100 * paid) / denom) : recorded === 0 ? null : paid > 0 ? 100 : 0;
 
-  const monthlyAmount = subscriptionRow != null ? Number(subscriptionRow.base_amount ?? 0) : null;
+  const monthlyAmount =
+    subscriptionRow != null
+      ? Number(
+          (
+            Number(subscriptionRow.base_amount ?? 0) /
+            normalizeBillingDurationMonths(subscriptionRow.billing_duration_months)
+          ).toFixed(2)
+        )
+      : null;
   const creditsPer = subscriptionRow?.credits_per_cycle;
   const rate = subscriptionRow?.credit_rate;
+  const durationMonths = normalizeBillingDurationMonths(subscriptionRow?.billing_duration_months);
 
   return {
     is_patty: true,
@@ -649,7 +679,7 @@ export const getPattyInstallmentSummary = async (userId, subscriptionRow = null)
     monthly_payment_amount: monthlyAmount,
     monthly_payment_label:
       creditsPer != null && rate != null
-        ? `${creditsPer} credits × ${Number(rate).toFixed(2)} per credit = ${monthlyAmount != null ? Number(monthlyAmount).toFixed(2) : '—'} per month`
+        ? `(${creditsPer} credits × ${Number(rate).toFixed(2)} rate) / ${durationMonths} months = ${monthlyAmount != null ? Number(monthlyAmount).toFixed(2) : '—'} per month`
         : null,
     installments_recorded: recorded,
     installments_paid: paid,
@@ -681,6 +711,7 @@ export const listPattySchoolUsersForInstallmentView = async () => {
       s.next_due_date,
       s.grace_days,
       s.payment_due_day,
+      s.billing_duration_months,
       s.auto_renew,
       p.plan_name,
       p.credits_per_cycle,

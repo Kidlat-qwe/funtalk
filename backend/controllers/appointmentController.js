@@ -1,6 +1,29 @@
 import { query, getClient } from '../config/database.js';
+import {
+  bookingFitsSlots,
+  computeAvailableSlotsForTeacherDate,
+  durationMinutesFromNotes,
+  normalizeClassType,
+  normalizeToYyyyMmDd,
+  normalizeTimeHHMM,
+} from '../utils/teacherSlotAvailability.js';
+import { createNotification, ensureNotificationSchema } from '../services/notificationService.js';
 
 const DURATION_MINUTES_TO_CREDITS = { 25: 1, 50: 2, 75: 3, 100: 4 };
+
+const NOTIFICATION_HREFS = {
+  adminAppointments: '/superadmin/appointments',
+  schoolBookings: '/school/bookings',
+};
+
+const safeCreateNotification = async (payload) => {
+  try {
+    await createNotification(payload);
+  } catch (error) {
+    // Notifications must never break booking flows.
+    console.error('Notification dispatch failed:', error);
+  }
+};
 
 /** Credits charged when a class is marked completed (matches school booking duration options). */
 const getCreditsToChargeForAppointment = (additionalNotes) => {
@@ -26,8 +49,8 @@ export const getAppointments = async (req, res) => {
         a.teacher_id,
         a.meeting_id,
         a.material_id,
-        a.appointment_date,
-        a.appointment_time,
+        a.appointment_date::text AS appointment_date,
+        a.appointment_time::text AS appointment_time,
         a.class_type,
         a.student_name,
         a.student_age,
@@ -135,7 +158,22 @@ export const getAppointmentById = async (req, res) => {
     
     const query = `
       SELECT 
-        a.*,
+        a.appointment_id,
+        a.user_id,
+        a.teacher_id,
+        a.meeting_id,
+        a.material_id,
+        a.appointment_date::text AS appointment_date,
+        a.appointment_time::text AS appointment_time,
+        a.class_type,
+        a.student_name,
+        a.student_age,
+        a.student_level,
+        a.additional_notes,
+        a.status,
+        a.approved_by,
+        a.created_at,
+        a.student_id,
         u.name as school_name,
         u.email as school_email,
         t.fullname as teacher_name,
@@ -252,20 +290,39 @@ export const createAppointment = async (req, res) => {
           message: 'Teacher not found',
         });
       }
-      
-      // Check for time slot conflict (unique constraint)
-      const conflictCheck = await client.query(
-        `SELECT appointment_id FROM appointmenttbl 
-         WHERE teacher_id = $1 AND appointment_date = $2 AND appointment_time = $3 
-         AND status NOT IN ('cancelled', 'no_show')`,
-        [resolvedTeacherId, appointmentDate, appointmentTime]
+
+      const currentClassType = normalizeClassType(normalizedClassType);
+      const sameSlotRows = await client.query(
+        `SELECT appointment_id, teacher_id, class_type
+         FROM appointmenttbl
+         WHERE appointment_date = $1
+           AND appointment_time = $2
+           AND teacher_id IS NOT NULL
+           AND status NOT IN ('cancelled', 'no_show')`,
+        [appointmentDate, appointmentTime]
       );
-      
-      if (conflictCheck.rows.length > 0) {
+
+      const rowsForSelectedTeacher = sameSlotRows.rows.filter(
+        (row) => Number(row.teacher_id) === resolvedTeacherId
+      );
+      const selectedTeacherHasExclusiveClass = rowsForSelectedTeacher.some(
+        (row) => normalizeClassType(row.class_type) !== 'group'
+      );
+
+      if (currentClassType === 'group') {
+        if (selectedTeacherHasExclusiveClass) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            success: false,
+            message:
+              'Selected teacher already has a one-on-one or VIP class at this time. Group classes cannot overlap with those class types.',
+          });
+        }
+      } else if (selectedTeacherHasExclusiveClass || rowsForSelectedTeacher.length > 0) {
         await client.query('ROLLBACK');
         return res.status(409).json({
           success: false,
-          message: 'This time slot is already booked for this teacher',
+          message: 'This teacher is already booked at this time slot.',
         });
       }
     }
@@ -279,7 +336,23 @@ export const createAppointment = async (req, res) => {
         additional_notes, status, student_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *
+      RETURNING
+        appointment_id,
+        user_id,
+        teacher_id,
+        meeting_id,
+        material_id,
+        appointment_date::text AS appointment_date,
+        appointment_time::text AS appointment_time,
+        class_type,
+        student_name,
+        student_age,
+        student_level,
+        additional_notes,
+        status,
+        approved_by,
+        created_at,
+        student_id
     `;
     
     const metadataLines = [];
@@ -314,6 +387,48 @@ export const createAppointment = async (req, res) => {
     const result = await client.query(insertQuery, values);
     
     await client.query('COMMIT');
+
+    const createdAppointmentId = result.rows[0]?.appointment_id;
+    const createdClassType = normalizedClassType || 'class';
+    const createdDate = appointmentDate ? String(appointmentDate) : 'N/A';
+    const createdTime = appointmentTime ? String(appointmentTime).substring(0, 5) : 'N/A';
+    const creatorRole = req.user?.userType || 'user';
+
+    await ensureNotificationSchema().catch((error) => {
+      console.error('Notification schema check failed after appointment create:', error);
+    });
+    await Promise.allSettled([
+      safeCreateNotification({
+        targetRole: 'admin',
+        title: 'New booking submitted',
+        message: `A ${createdClassType.replaceAll('_', '-')} booking is pending review on ${createdDate} at ${createdTime}.`,
+        href: NOTIFICATION_HREFS.adminAppointments,
+        severity: 'action_required',
+        entityType: 'appointment',
+        entityId: createdAppointmentId,
+      }),
+      safeCreateNotification({
+        targetRole: 'superadmin',
+        title: 'New booking submitted',
+        message: `A ${createdClassType.replaceAll('_', '-')} booking is pending review on ${createdDate} at ${createdTime}.`,
+        href: NOTIFICATION_HREFS.adminAppointments,
+        severity: 'action_required',
+        entityType: 'appointment',
+        entityId: createdAppointmentId,
+      }),
+      safeCreateNotification({
+        userId: bookingUserId,
+        title: 'Booking received',
+        message:
+          creatorRole === 'school'
+            ? `Your ${createdClassType.replaceAll('_', '-')} booking for ${createdDate} at ${createdTime} is now pending admin approval.`
+            : `A ${createdClassType.replaceAll('_', '-')} booking was submitted for your school on ${createdDate} at ${createdTime}.`,
+        href: NOTIFICATION_HREFS.schoolBookings,
+        severity: 'info',
+        entityType: 'appointment',
+        entityId: createdAppointmentId,
+      }),
+    ]);
     
     res.status(201).json({
       success: true,
@@ -330,7 +445,8 @@ export const createAppointment = async (req, res) => {
     if (error.code === '23505') {
       return res.status(409).json({
         success: false,
-        message: 'This time slot is already booked for this teacher',
+        message:
+          'This teacher/time combination violates a database uniqueness rule. If you are allowing concurrent group classes with the same teacher, remove or update the unique constraint on (teacher_id, appointment_date, appointment_time).',
       });
     }
 
@@ -370,7 +486,11 @@ export const updateAppointmentStatus = async (req, res) => {
     
     // Get current appointment (lock row for credit deduction + status update)
     const currentAppt = await client.query(
-      `SELECT status, meeting_id, user_id, additional_notes
+      `SELECT status, meeting_id, user_id, additional_notes,
+              appointment_date::text AS appointment_date,
+              appointment_time::text AS appointment_time,
+              class_type,
+              teacher_id
        FROM appointmenttbl WHERE appointment_id = $1 FOR UPDATE`,
       [id]
     );
@@ -469,7 +589,69 @@ export const updateAppointmentStatus = async (req, res) => {
         });
       }
 
-      nextTeacherId = Number(teacherId);
+      const row = currentAppt.rows[0];
+      const bookingDate = normalizeToYyyyMmDd(row.appointment_date);
+      const bookingTime = normalizeTimeHHMM(row.appointment_time);
+      const currentClassType = normalizeClassType(row.class_type);
+      if (!bookingDate || !bookingTime) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'Appointment date or time is missing; cannot verify teacher availability.',
+        });
+      }
+
+      const sameSlotRows = await client.query(
+        `SELECT appointment_id, teacher_id, class_type
+         FROM appointmenttbl
+         WHERE appointment_date = $1
+           AND appointment_time = $2
+           AND teacher_id IS NOT NULL
+           AND status NOT IN ('cancelled', 'no_show')
+           AND appointment_id <> $3`,
+        [bookingDate, bookingTime, Number(id)]
+      );
+      const selectedTeacherId = Number(teacherId);
+      const rowsForSelectedTeacher = sameSlotRows.rows.filter(
+        (item) => Number(item.teacher_id) === selectedTeacherId
+      );
+      const selectedTeacherHasExclusiveClass = rowsForSelectedTeacher.some(
+        (item) => normalizeClassType(item.class_type) !== 'group'
+      );
+      if (currentClassType === 'group') {
+        if (selectedTeacherHasExclusiveClass) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            success: false,
+            message:
+              'Selected teacher already has a one-on-one or VIP class at this time. Group classes cannot overlap with those class types.',
+          });
+        }
+      } else if (selectedTeacherHasExclusiveClass || rowsForSelectedTeacher.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          success: false,
+          message: 'This teacher is already booked at this time slot.',
+        });
+      }
+
+      const durationMins = durationMinutesFromNotes(row.additional_notes);
+      const slots = await computeAvailableSlotsForTeacherDate(
+        (sql, params) => client.query(sql, params),
+        selectedTeacherId,
+        bookingDate,
+        { excludeAppointmentId: Number(id), targetClassType: currentClassType }
+      );
+      if (!bookingFitsSlots(slots, bookingTime, durationMins)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message:
+            'This teacher is not available for the booked date and time. Choose another teacher or ask the school to reschedule.',
+        });
+      }
+
+      nextTeacherId = selectedTeacherId;
       const existingMeetingId = currentAppt.rows[0].meeting_id;
 
       if (existingMeetingId) {
@@ -500,7 +682,23 @@ export const updateAppointmentStatus = async (req, res) => {
           teacher_id = COALESCE($3, teacher_id),
           meeting_id = COALESCE($4, meeting_id)
       WHERE appointment_id = $5
-      RETURNING *
+      RETURNING
+        appointment_id,
+        user_id,
+        teacher_id,
+        meeting_id,
+        material_id,
+        appointment_date::text AS appointment_date,
+        appointment_time::text AS appointment_time,
+        class_type,
+        student_name,
+        student_age,
+        student_level,
+        additional_notes,
+        status,
+        approved_by,
+        created_at,
+        student_id
     `;
     
     const approverId = status === 'approved' ? req.user.userId : null;
@@ -518,6 +716,74 @@ export const updateAppointmentStatus = async (req, res) => {
     }
     
     await client.query('COMMIT');
+
+    const updatedAppointmentId = Number(id);
+    const bookingOwnerUserId = currentAppt.rows[0]?.user_id;
+    const bookingClassType = normalizeClassType(currentAppt.rows[0]?.class_type) || 'class';
+    const bookingDate = normalizeToYyyyMmDd(currentAppt.rows[0]?.appointment_date) || 'N/A';
+    const bookingTime = normalizeTimeHHMM(currentAppt.rows[0]?.appointment_time) || 'N/A';
+
+    await ensureNotificationSchema().catch((error) => {
+      console.error('Notification schema check failed after appointment status update:', error);
+    });
+
+    const schoolStatusMessageMap = {
+      approved: `Your ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was approved.`,
+      cancelled: `Your ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was cancelled.`,
+      completed: `Your ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was marked completed.`,
+      no_show: `Your ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was marked no-show.`,
+      pending: `Your ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} is pending review.`,
+    };
+
+    const adminStatusMessageMap = {
+      approved: `A ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was approved.`,
+      cancelled: `A ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was cancelled.`,
+      completed: `A ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was completed.`,
+      no_show: `A ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was marked no-show.`,
+      pending: `A ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} is pending.`,
+    };
+
+    const schoolMessage = schoolStatusMessageMap[status];
+    const adminMessage = adminStatusMessageMap[status];
+    const notifyTasks = [];
+    if (schoolMessage && bookingOwnerUserId) {
+      notifyTasks.push(
+        safeCreateNotification({
+          userId: bookingOwnerUserId,
+          title: `Booking ${String(status).replace('_', ' ')}`,
+          message: schoolMessage,
+          href: NOTIFICATION_HREFS.schoolBookings,
+          severity: status === 'cancelled' ? 'warning' : status === 'approved' ? 'info' : 'info',
+          entityType: 'appointment',
+          entityId: updatedAppointmentId,
+        })
+      );
+    }
+    if (adminMessage && status !== oldStatus) {
+      notifyTasks.push(
+        safeCreateNotification({
+          targetRole: 'admin',
+          title: `Booking ${String(status).replace('_', ' ')}`,
+          message: adminMessage,
+          href: NOTIFICATION_HREFS.adminAppointments,
+          severity: status === 'pending' ? 'action_required' : 'info',
+          entityType: 'appointment',
+          entityId: updatedAppointmentId,
+        }),
+        safeCreateNotification({
+          targetRole: 'superadmin',
+          title: `Booking ${String(status).replace('_', ' ')}`,
+          message: adminMessage,
+          href: NOTIFICATION_HREFS.adminAppointments,
+          severity: status === 'pending' ? 'action_required' : 'info',
+          entityType: 'appointment',
+          entityId: updatedAppointmentId,
+        })
+      );
+    }
+    if (notifyTasks.length > 0) {
+      await Promise.allSettled(notifyTasks);
+    }
     
     res.status(200).json({
       success: true,
@@ -529,6 +795,14 @@ export const updateAppointmentStatus = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error updating appointment status:', error);
+    if (error.code === '23505') {
+      return res.status(409).json({
+        success: false,
+        message:
+          'Cannot approve this booking due to database slot uniqueness rules. Run docs/migrations/appointment_slot_rules_by_class_type.sql, then retry.',
+        error: error.message,
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Error updating appointment status',
@@ -615,7 +889,23 @@ export const updateAppointment = async (req, res) => {
       UPDATE appointmenttbl
       SET ${updates.join(', ')}
       WHERE appointment_id = $${paramIndex}
-      RETURNING *
+      RETURNING
+        appointment_id,
+        user_id,
+        teacher_id,
+        meeting_id,
+        material_id,
+        appointment_date::text AS appointment_date,
+        appointment_time::text AS appointment_time,
+        class_type,
+        student_name,
+        student_age,
+        student_level,
+        additional_notes,
+        status,
+        approved_by,
+        created_at,
+        student_id
     `;
     
     const result = await query(updateQuery, values);

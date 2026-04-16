@@ -15,7 +15,7 @@ import fs from 'fs';
 export const getMaterials = async (req, res) => {
   try {
     const { materialType, search } = req.query;
-    const isTeacher = req.user?.userType === 'teacher';
+    const isOwnerScopedRole = req.user?.userType === 'teacher' || req.user?.userType === 'school';
     
     let sqlQuery = `
       SELECT 
@@ -45,7 +45,7 @@ export const getMaterials = async (req, res) => {
       paramIndex++;
     }
 
-    if (isTeacher) {
+    if (isOwnerScopedRole) {
       sqlQuery += ` AND created_by_user_id = $${paramIndex}`;
       params.push(req.user.userId);
       paramIndex++;
@@ -228,7 +228,10 @@ export const updateMaterial = async (req, res) => {
     
     const oldFileUrl = materialCheck.rows[0].file_url;
     const createdByUserId = materialCheck.rows[0].created_by_user_id;
-    if (req.user?.userType === 'teacher' && Number(createdByUserId) !== Number(req.user.userId)) {
+    if (
+      (req.user?.userType === 'teacher' || req.user?.userType === 'school') &&
+      Number(createdByUserId) !== Number(req.user.userId)
+    ) {
       return res.status(403).json({
         success: false,
         message: 'You can only edit your own materials.',
@@ -349,7 +352,10 @@ export const deleteMaterial = async (req, res) => {
       });
     }
 
-    if (req.user?.userType === 'teacher' && Number(existing.rows[0].created_by_user_id) !== Number(req.user.userId)) {
+    if (
+      (req.user?.userType === 'teacher' || req.user?.userType === 'school') &&
+      Number(existing.rows[0].created_by_user_id) !== Number(req.user.userId)
+    ) {
       return res.status(403).json({
         success: false,
         message: 'You can only delete your own materials.',

@@ -90,7 +90,7 @@ export const getUserById = async (req, res) => {
     if (isAdmin && u.user_type === 'school' && String(u.billing_type || '').toLowerCase() === 'patty') {
       await ensureSubscriptionSchema();
       const sub = await query(
-        `SELECT s.start_date, s.payment_due_day, s.grace_days, s.rollover_enabled, s.max_rollover_credits, s.auto_renew,
+        `SELECT s.start_date, s.payment_due_day, s.billing_duration_months, s.penalty_percentage, s.grace_days, s.rollover_enabled, s.max_rollover_credits, s.auto_renew,
                 p.plan_name, p.credits_per_cycle, p.credit_rate
          FROM subscriptionscheduletbl s
          LEFT JOIN subscriptionplantbl p ON p.plan_id = s.plan_id
@@ -105,6 +105,8 @@ export const getUserById = async (req, res) => {
           creditsPerCycle: r.credits_per_cycle != null ? String(r.credits_per_cycle) : '',
           ratePerCredit: r.credit_rate != null ? String(r.credit_rate) : '',
           paymentDueDay: String(r.payment_due_day ?? '1'),
+          billingDurationMonths: String(r.billing_duration_months ?? '12'),
+          penaltyPercentage: String(r.penalty_percentage ?? '10'),
           graceDays: String(r.grace_days ?? '0'),
           rolloverEnabled: Boolean(r.rollover_enabled),
           maxRolloverCredits: String(r.max_rollover_credits ?? '0'),
@@ -244,6 +246,8 @@ export const updateUser = async (req, res) => {
           creditsPerCycle: Number(billingConfig.creditsPerCycle || 20),
           creditRate: Number(billingConfig.ratePerCredit || 5),
           paymentDueDay: Number(billingConfig.paymentDueDay || 1),
+          billingDurationMonths: Number(billingConfig.billingDurationMonths || 12),
+          penaltyPercentage: Number(billingConfig.penaltyPercentage || 10),
           graceDays: Number(billingConfig.graceDays || 7),
           rolloverEnabled:
             billingConfig.rolloverEnabled !== undefined ? Boolean(billingConfig.rolloverEnabled) : true,

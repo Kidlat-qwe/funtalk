@@ -8,7 +8,7 @@ const router = express.Router();
 /**
  * @route   GET /api/materials
  * @desc    Get all teaching materials
- * @access  Private (Admin/Superadmin/Teacher)
+ * @access  Private (Admin/Superadmin/Teacher/School)
  */
 router.get('/', authenticate, materialController.getMaterials);
 
@@ -21,20 +21,25 @@ router.get('/:id', materialController.getMaterialById);
 
 /**
  * @route   POST /api/materials
- * @desc    Create teaching material (Admin/Teacher)
- * @access  Private (Admin/Superadmin/Teacher)
+ * @desc    Create teaching material (Admin/Teacher/School)
+ * @access  Private (Admin/Superadmin/Teacher/School)
  */
 router.post(
   '/',
   authenticate,
   (req, res, next) => {
-    // Allow admin/superadmin or teacher
-    if (req.user.userType === 'superadmin' || req.user.userType === 'admin' || req.user.userType === 'teacher') {
+    // Allow admin/superadmin, teacher, or school
+    if (
+      req.user.userType === 'superadmin' ||
+      req.user.userType === 'admin' ||
+      req.user.userType === 'teacher' ||
+      req.user.userType === 'school'
+    ) {
       return next();
     }
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Admin or Teacher role required.',
+      message: 'Access denied. Admin, Teacher, or School role required.',
     });
   },
   (req, res, next) => {
@@ -55,19 +60,24 @@ router.post(
 
 /**
  * @route   PUT /api/materials/:id
- * @desc    Update teaching material (Admin/Superadmin/Teacher own)
- * @access  Private (Admin/Superadmin/Teacher own)
+ * @desc    Update teaching material (Admin/Superadmin/Teacher own/School own)
+ * @access  Private (Admin/Superadmin/Teacher own/School own)
  */
 router.put(
   '/:id',
   authenticate,
   (req, res, next) => {
-    if (req.user.userType === 'superadmin' || req.user.userType === 'admin' || req.user.userType === 'teacher') {
+    if (
+      req.user.userType === 'superadmin' ||
+      req.user.userType === 'admin' ||
+      req.user.userType === 'teacher' ||
+      req.user.userType === 'school'
+    ) {
       return next();
     }
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Admin or Teacher role required.',
+      message: 'Access denied. Admin, Teacher, or School role required.',
     });
   },
   (req, res, next) => {
@@ -88,19 +98,24 @@ router.put(
 
 /**
  * @route   DELETE /api/materials/:id
- * @desc    Delete teaching material (Admin/Superadmin/Teacher own)
- * @access  Private (Admin/Superadmin/Teacher own)
+ * @desc    Delete teaching material (Admin/Superadmin/Teacher own/School own)
+ * @access  Private (Admin/Superadmin/Teacher own/School own)
  */
 router.delete(
   '/:id',
   authenticate,
   (req, res, next) => {
-    if (req.user.userType === 'superadmin' || req.user.userType === 'admin' || req.user.userType === 'teacher') {
+    if (
+      req.user.userType === 'superadmin' ||
+      req.user.userType === 'admin' ||
+      req.user.userType === 'teacher' ||
+      req.user.userType === 'school'
+    ) {
       return next();
     }
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Admin or Teacher role required.',
+      message: 'Access denied. Admin, Teacher, or School role required.',
     });
   },
   materialController.deleteMaterial

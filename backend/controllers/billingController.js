@@ -480,10 +480,18 @@ export const approvePayment = async (req, res) => {
       }
     }
 
-    if (!paymentType || !referenceNumber) {
+    const ref =
+      typeof referenceNumber === 'string' ? referenceNumber.trim() : String(referenceNumber || '').trim();
+    if (!paymentType || !ref) {
       return res.status(400).json({
         success: false,
         message: 'Payment type and reference number are required.',
+      });
+    }
+    if (!paymentAttachmentUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment attachment is required.',
       });
     }
 
@@ -530,7 +538,7 @@ export const approvePayment = async (req, res) => {
           inv.billing_id,
           inv.user_id,
           paymentType,
-          referenceNumber,
+          ref,
           Number(inv.amount || 0),
           remarks || null,
           paymentAttachmentUrl,
@@ -542,43 +550,7 @@ export const approvePayment = async (req, res) => {
       );
     }
 
-    if (inv.subscription_id && String(inv.description || '').startsWith('signup_initial_invoice')) {
-      const sub = await client.query(
-        `SELECT s.user_id, p.credits_per_cycle
-         FROM subscriptionscheduletbl s
-         LEFT JOIN subscriptionplantbl p ON p.plan_id = s.plan_id
-         WHERE s.subscription_id = $1`,
-        [inv.subscription_id]
-      );
-      if (sub.rows.length > 0) {
-        const txDesc = `invoice_payment_allocation invoice_id=${id}`;
-        const existingTx = await client.query(
-          `SELECT transaction_id
-           FROM credittransactionstbl
-           WHERE user_id = $1 AND transaction_type = 'purchase' AND description = $2`,
-          [sub.rows[0].user_id, txDesc]
-        );
-        if (existingTx.rows.length === 0) {
-          const balanceResult = await client.query(
-            'SELECT current_balance FROM creditstbl WHERE user_id = $1 FOR UPDATE',
-            [sub.rows[0].user_id]
-          );
-          const before = Number(balanceResult.rows[0]?.current_balance || 0);
-          const allocation = Number(sub.rows[0].credits_per_cycle || 0);
-          const after = before + allocation;
-          await client.query(
-            'UPDATE creditstbl SET current_balance = $1, last_updated = CURRENT_TIMESTAMP WHERE user_id = $2',
-            [after, sub.rows[0].user_id]
-          );
-          await client.query(
-            `INSERT INTO credittransactionstbl (
-               user_id, transaction_type, amount, balance_before, balance_after, description, created_by
-             ) VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
-            [sub.rows[0].user_id, allocation, before, after, txDesc, req.user?.userId || null]
-          );
-        }
-      }
-    }
+    // Invoice payment approval does not change credits.
     await client.query('COMMIT');
 
     res.status(200).json({

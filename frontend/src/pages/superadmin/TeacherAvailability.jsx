@@ -4,6 +4,45 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
 
+const SLOT_STEP_MINUTES = 30;
+
+const toMinutes = (slot) => {
+  if (!slot || typeof slot !== 'string') return null;
+  const [h, m] = slot.split(':').map((n) => Number(n));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+};
+
+const toDisplayTime = (minutes) => {
+  const h24 = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  const period = h24 >= 12 ? 'PM' : 'AM';
+  const h12 = h24 % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+};
+
+const buildSlotRanges = (slots) => {
+  const normalized = [...new Set((slots || []).map(toMinutes).filter((v) => v != null))].sort((a, b) => a - b);
+  if (normalized.length === 0) return [];
+
+  const ranges = [];
+  let start = normalized[0];
+  let prev = normalized[0];
+
+  for (let i = 1; i < normalized.length; i += 1) {
+    const current = normalized[i];
+    if (current - prev === SLOT_STEP_MINUTES) {
+      prev = current;
+      continue;
+    }
+    ranges.push({ start, end: prev + SLOT_STEP_MINUTES });
+    start = current;
+    prev = current;
+  }
+  ranges.push({ start, end: prev + SLOT_STEP_MINUTES });
+  return ranges;
+};
+
 const TeacherAvailability = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -180,8 +219,8 @@ const TeacherAvailability = () => {
             </div>
 
             {selectedDate && (
-              <div className="text-xs sm:text-sm text-gray-600">
-                Available teachers on <span className="font-medium">{selectedDate}</span>: {availableCount} / {filteredTeachers.length}
+              <div className="text-xs sm:text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                Available teachers on <span className="font-semibold text-blue-800">{selectedDate}</span>: {availableCount} / {filteredTeachers.length}
               </div>
             )}
 
@@ -207,6 +246,7 @@ const TeacherAvailability = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {filteredTeachers.map((teacher) => {
                         const slots = availabilityByTeacherId[teacher.teacher_id] || [];
+                        const slotRanges = buildSlotRanges(slots);
                         const isAvailable = selectedDate ? slots.length > 0 : false;
                         return (
                           <tr key={teacher.teacher_id} className="hover:bg-gray-50">
@@ -225,17 +265,22 @@ const TeacherAvailability = () => {
                               {!selectedDate ? (
                                 <span className="text-xs text-gray-500">Select a date to check slots</span>
                               ) : slots.length === 0 ? (
-                                <span className="text-xs text-gray-500">No slots</span>
+                                <span className="text-xs text-gray-500">No schedule for this date</span>
                               ) : (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {slots.map((slot) => (
-                                    <span
-                                      key={`${teacher.teacher_id}-${slot}`}
-                                      className="px-2 py-1 text-xs rounded bg-primary-50 text-primary-700 border border-primary-100"
-                                    >
-                                      {slot}
-                                    </span>
-                                  ))}
+                                <div className="space-y-2">
+                                  <div className="text-xs text-gray-500">
+                                    {slots.length} slot{slots.length > 1 ? 's' : ''} across {slotRanges.length} schedule block{slotRanges.length > 1 ? 's' : ''}
+                                  </div>
+                                  <div className="space-y-1">
+                                    {slotRanges.map((range, idx) => (
+                                      <div
+                                        key={`${teacher.teacher_id}-${range.start}-${idx}`}
+                                        className="px-2.5 py-1.5 text-xs sm:text-sm rounded-md bg-primary-50 text-primary-800 border border-primary-100 w-fit"
+                                      >
+                                        {toDisplayTime(range.start)} - {toDisplayTime(range.end)}
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                             </td>
