@@ -320,7 +320,7 @@ const Header = ({ user }) => {
               className="h-10 sm:h-12 w-auto object-contain"
             />
             <div className="hidden sm:block">
-              <h1 className="text-base sm:text-lg font-bold text-white tracking-tight">Funtalk Appointment System</h1>
+              <h1 className="text-base sm:text-lg font-semibold text-white tracking-tight">Funtalk Online Tutor</h1>
             </div>
           </div>
 
