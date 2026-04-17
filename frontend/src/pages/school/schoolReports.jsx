@@ -299,12 +299,12 @@ const SchoolReports = () => {
                     <table className="w-full divide-y divide-gray-200" style={{ minWidth: '900px' }}>
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teacher</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Class Time</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Feedback</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Date</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Student</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Teacher</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Class Time</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Feedback</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">

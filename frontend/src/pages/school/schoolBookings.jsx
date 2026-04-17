@@ -811,12 +811,12 @@ const SchoolBookings = () => {
                     <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1024px' }}>
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Time</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teacher</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Material</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Date & Time</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Student</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Teacher</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Material</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -874,7 +874,7 @@ const SchoolBookings = () => {
                   )}
                 </div>
 
-                {openActionMenuId !== null && actionMenuAppointment && (
+                {openActionMenuId !== null && actionMenuAppointment && createPortal(
                   <div
                     className="booking-action-menu fixed w-52 sm:w-56 bg-white rounded-md shadow-xl z-[9999] border border-gray-200 py-1"
                     style={{
@@ -932,7 +932,8 @@ const SchoolBookings = () => {
                           No actions for this booking
                         </div>
                       )}
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             </div>

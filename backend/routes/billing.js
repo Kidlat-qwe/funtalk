@@ -7,6 +7,28 @@ import { uploadReceipt } from '../middleware/upload.js';
 
 const router = express.Router();
 
+const handleReceiptUpload = (req, res, next) => {
+  uploadReceipt.single('paymentAttachment')(req, res, (err) => {
+    if (!err) return next();
+    if (err?.name === 'MulterError') {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'Attachment exceeds 10MB limit.',
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Invalid attachment upload.',
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'Attachment upload failed.',
+    });
+  });
+};
+
 /**
  * @route   GET /api/billing/packages
  * @desc    Get all available credit packages
@@ -32,7 +54,7 @@ router.post(
   isAdmin,
   [
     body('packageName').trim().notEmpty().withMessage('Package name is required'),
-    body('packageType').optional().isString(),
+    body('description').optional().isString(),
     body('creditsValue').isInt({ min: 1 }).withMessage('Credits value must be a positive integer'),
     body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
     body('isActive').optional().isBoolean(),
@@ -52,7 +74,7 @@ router.put(
   isAdmin,
   [
     body('packageName').optional().trim().notEmpty(),
-    body('packageType').optional().isString(),
+    body('description').optional().isString(),
     body('creditsValue').optional().isInt({ min: 1 }),
     body('price').optional().isFloat({ min: 0 }),
     body('isActive').optional().isBoolean(),
@@ -175,7 +197,7 @@ router.post(
   '/:id/approve',
   authenticate,
   isAdmin,
-  uploadReceipt.single('paymentAttachment'),
+  handleReceiptUpload,
   [
     body('paymentType').trim().notEmpty().withMessage('Payment type is required'),
     body('referenceNumber').trim().notEmpty().withMessage('Reference number is required'),

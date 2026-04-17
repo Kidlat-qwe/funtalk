@@ -21,6 +21,11 @@ export const ensureNotificationSchema = async () => {
   await query(`CREATE INDEX IF NOT EXISTS idx_notification_target_role ON notificationtbl(target_role)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_notification_read_at ON notificationtbl(read_at)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_notification_created_at ON notificationtbl(created_at DESC)`);
+  await query(
+    `UPDATE notificationtbl
+     SET href = '/superadmin/appointment'
+     WHERE href = '/superadmin/appointments'`
+  );
 };
 
 export const createNotification = async ({
@@ -41,6 +46,51 @@ export const createNotification = async ({
     [userId, targetRole, title, message, href, severity, entityType, entityId]
   );
   return res.rows[0];
+};
+
+export const findRecentNotification = async ({
+  userId = null,
+  targetRole = null,
+  title,
+  message,
+  href,
+  entityType = null,
+  entityId = null,
+  withinMinutes = 60,
+}) => {
+  const safeWithinMinutes = Math.max(1, Number(withinMinutes) || 60);
+  const res = await query(
+    `SELECT notification_id
+     FROM notificationtbl
+     WHERE (($1::int IS NOT NULL AND user_id = $1) OR ($1::int IS NULL AND user_id IS NULL))
+       AND (($2::text IS NOT NULL AND target_role = $2) OR ($2::text IS NULL AND target_role IS NULL))
+       AND title = $3
+       AND message = $4
+       AND href = $5
+       AND (($6::text IS NOT NULL AND entity_type = $6) OR ($6::text IS NULL AND entity_type IS NULL))
+       AND (($7::int IS NOT NULL AND entity_id = $7) OR ($7::int IS NULL AND entity_id IS NULL))
+       AND created_at >= (CURRENT_TIMESTAMP - make_interval(mins => $8::int))
+     LIMIT 1`,
+    [userId, targetRole, title, message, href, entityType, entityId, safeWithinMinutes]
+  );
+  return res.rows[0] || null;
+};
+
+export const createNotificationIfNotExists = async (payload, options = {}) => {
+  const existing = await findRecentNotification({
+    userId: payload.userId ?? null,
+    targetRole: payload.targetRole ?? null,
+    title: payload.title,
+    message: payload.message,
+    href: payload.href,
+    entityType: payload.entityType ?? null,
+    entityId: payload.entityId ?? null,
+    withinMinutes: options.withinMinutes ?? 60,
+  });
+  if (existing) {
+    return null;
+  }
+  return createNotification(payload);
 };
 
 export const listNotificationsForUser = async ({ userId, userType, limit = 20, unreadOnly = false }) => {

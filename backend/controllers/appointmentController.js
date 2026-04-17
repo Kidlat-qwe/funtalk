@@ -8,12 +8,14 @@ import {
   normalizeTimeHHMM,
 } from '../utils/teacherSlotAvailability.js';
 import { createNotification, ensureNotificationSchema } from '../services/notificationService.js';
+import { notifyTeacherAssignment } from '../services/notificationDispatchService.js';
 
 const DURATION_MINUTES_TO_CREDITS = { 25: 1, 50: 2, 75: 3, 100: 4 };
 
 const NOTIFICATION_HREFS = {
-  adminAppointments: '/superadmin/appointments',
+  adminAppointments: '/superadmin/appointment',
   schoolBookings: '/school/bookings',
+  teacherAppointments: '/teacher/appointments',
 };
 
 const safeCreateNotification = async (payload) => {
@@ -399,15 +401,6 @@ export const createAppointment = async (req, res) => {
     });
     await Promise.allSettled([
       safeCreateNotification({
-        targetRole: 'admin',
-        title: 'New booking submitted',
-        message: `A ${createdClassType.replaceAll('_', '-')} booking is pending review on ${createdDate} at ${createdTime}.`,
-        href: NOTIFICATION_HREFS.adminAppointments,
-        severity: 'action_required',
-        entityType: 'appointment',
-        entityId: createdAppointmentId,
-      }),
-      safeCreateNotification({
         targetRole: 'superadmin',
         title: 'New booking submitted',
         message: `A ${createdClassType.replaceAll('_', '-')} booking is pending review on ${createdDate} at ${createdTime}.`,
@@ -762,15 +755,6 @@ export const updateAppointmentStatus = async (req, res) => {
     if (adminMessage && status !== oldStatus) {
       notifyTasks.push(
         safeCreateNotification({
-          targetRole: 'admin',
-          title: `Booking ${String(status).replace('_', ' ')}`,
-          message: adminMessage,
-          href: NOTIFICATION_HREFS.adminAppointments,
-          severity: status === 'pending' ? 'action_required' : 'info',
-          entityType: 'appointment',
-          entityId: updatedAppointmentId,
-        }),
-        safeCreateNotification({
           targetRole: 'superadmin',
           title: `Booking ${String(status).replace('_', ' ')}`,
           message: adminMessage,
@@ -783,6 +767,19 @@ export const updateAppointmentStatus = async (req, res) => {
     }
     if (notifyTasks.length > 0) {
       await Promise.allSettled(notifyTasks);
+    }
+    if (
+      status === 'approved' &&
+      status !== oldStatus &&
+      Number(nextTeacherId || result.rows[0]?.teacher_id)
+    ) {
+      await notifyTeacherAssignment({
+        appointmentId: updatedAppointmentId,
+        teacherId: Number(nextTeacherId || result.rows[0]?.teacher_id),
+        date: bookingDate,
+        time: bookingTime,
+        classType: bookingClassType,
+      });
     }
     
     res.status(200).json({

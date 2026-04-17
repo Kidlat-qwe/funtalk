@@ -16,7 +16,7 @@ const Package = () => {
   const [editingPackage, setEditingPackage] = useState(null);
   const [formData, setFormData] = useState({
     packageName: '',
-    packageType: '',
+    description: '',
     creditsValue: '',
     price: '',
     isActive: true,
@@ -24,6 +24,9 @@ const Package = () => {
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterActive, setFilterActive] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -55,6 +58,19 @@ const Package = () => {
       fetchPackages();
     }
   }, [user, filterActive]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.action-menu') && !event.target.closest('button[title="Actions"]')) {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
 
   const fetchPackages = async () => {
     setIsFetching(true);
@@ -92,7 +108,7 @@ const Package = () => {
     setEditingPackage(null);
     setFormData({
       packageName: '',
-      packageType: '',
+      description: '',
       creditsValue: '',
       price: '',
       isActive: true,
@@ -104,7 +120,7 @@ const Package = () => {
     setEditingPackage(pkg);
     setFormData({
       packageName: pkg.package_name || '',
-      packageType: pkg.package_type || '',
+      description: pkg.package_type || '',
       creditsValue: pkg.credits_value || '',
       price: pkg.price || '',
       isActive: pkg.is_active !== undefined ? pkg.is_active : true,
@@ -170,7 +186,7 @@ const Package = () => {
       
       const requestBody = {
         packageName: formData.packageName.trim(),
-        packageType: formData.packageType.trim() || null,
+        description: formData.description.trim() || null,
         creditsValue: parseInt(formData.creditsValue),
         price: parseFloat(formData.price),
         isActive: formData.isActive,
@@ -273,11 +289,32 @@ const Package = () => {
     }
   };
 
+  const handleActionClick = (e, packageId) => {
+    e.stopPropagation();
+    const button = e.currentTarget;
+    const rect = button.getBoundingClientRect();
+
+    setMenuPosition({
+      top: rect.bottom + window.scrollY + 6,
+      right: window.innerWidth - rect.right + window.scrollX,
+    });
+
+    setOpenMenuId(openMenuId === packageId ? null : packageId);
+  };
+
   // Format price for display
   const formatPrice = (price) => {
     if (!price) return '$0.00';
     return `$${parseFloat(price).toFixed(2)}`;
   };
+
+  const searchQuery = nameSearch.trim().toLowerCase();
+  const filteredPackages = packages.filter((pkg) => {
+    if (!searchQuery) return true;
+    return String(pkg.package_name || '').toLowerCase().includes(searchQuery);
+  });
+
+  const hasFilters = Boolean(searchQuery || filterActive);
 
   if (isLoading) {
     return (
@@ -318,18 +355,34 @@ const Package = () => {
                 </button>
               </div>
 
-              {/* Filter */}
-              <div className="flex items-center gap-3">
-                <label className="text-xs sm:text-sm text-gray-700">Filter:</label>
-                <select
-                  value={filterActive}
-                  onChange={(e) => setFilterActive(e.target.value)}
-                  className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value="">All Packages</option>
-                  <option value="true">Active Only</option>
-                  <option value="false">Inactive Only</option>
-                </select>
+              {/* Filter toolbar */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+                  <div className="min-w-0 flex-1 sm:max-w-md">
+                    <input
+                      id="packages-search"
+                      type="search"
+                      aria-label="Search package name"
+                      placeholder="Search by package name"
+                      value={nameSearch}
+                      onChange={(e) => setNameSearch(e.target.value)}
+                      autoComplete="off"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div className="w-full sm:w-auto sm:min-w-[11rem]">
+                    <select
+                      value={filterActive}
+                      onChange={(e) => setFilterActive(e.target.value)}
+                      aria-label="Filter packages by status"
+                      className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">All statuses</option>
+                      <option value="true">Active only</option>
+                      <option value="false">Inactive only</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {/* Packages Grid - Shop Style */}
@@ -338,7 +391,7 @@ const Package = () => {
                   <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-primary-600 mx-auto"></div>
                   <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-600">Loading packages...</p>
                 </div>
-              ) : packages.length === 0 ? (
+              ) : filteredPackages.length === 0 ? (
                 <div className="bg-white rounded-lg shadow p-6 sm:p-8 md:p-10 lg:p-12 text-center">
                   <svg
                     className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400"
@@ -353,17 +406,21 @@ const Package = () => {
                       d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
                     />
                   </svg>
-                  <h3 className="mt-3 sm:mt-4 text-base sm:text-lg font-medium text-gray-900">No packages found</h3>
+                  <h3 className="mt-3 sm:mt-4 text-base sm:text-lg font-medium text-gray-900">
+                    {hasFilters ? 'No matching packages' : 'No packages found'}
+                  </h3>
                   <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">
-                    Get started by creating a new package
+                    {hasFilters
+                      ? 'Try a different package name or clear filters.'
+                      : 'Get started by creating a new package'}
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
-                  {packages.map((pkg) => (
+                  {filteredPackages.map((pkg) => (
                     <div
                       key={pkg.package_id}
-                      className={`bg-white rounded-lg shadow-lg overflow-hidden transition-transform hover:scale-105 ${
+                      className={`bg-white rounded-lg shadow-lg overflow-hidden transition-transform hover:scale-105 relative ${
                         !pkg.is_active ? 'opacity-60' : ''
                       }`}
                     >
@@ -374,6 +431,26 @@ const Package = () => {
                             Inactive
                           </div>
                         )}
+                      </div>
+
+                      {/* Action Menu Trigger */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <button
+                          type="button"
+                          onClick={(e) => handleActionClick(e, pkg.package_id)}
+                          className="text-gray-600 hover:text-gray-900 focus:outline-none p-1 bg-white/90 rounded-md border border-gray-200"
+                          title="Actions"
+                          aria-label="Open package actions"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                            />
+                          </svg>
+                        </button>
                       </div>
 
                       {/* Package Card Content */}
@@ -412,33 +489,6 @@ const Package = () => {
                           </div>
                         </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex flex-col gap-2">
-                          <button
-                            onClick={() => handleToggleActive(pkg)}
-                            className={`w-full px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
-                              pkg.is_active
-                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                                : 'bg-green-100 text-green-800 hover:bg-green-200'
-                            }`}
-                          >
-                            {pkg.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEditClick(pkg)}
-                              className="flex-1 px-3 py-2 text-xs sm:text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(pkg.package_id, pkg.package_name)}
-                              className="flex-1 px-3 py-2 text-xs sm:text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -446,10 +496,68 @@ const Package = () => {
               )}
 
               {/* Results Count */}
-              {packages.length > 0 && (
+              {filteredPackages.length > 0 && (
                 <div className="text-xs sm:text-sm text-gray-600">
-                  Showing {packages.length} package{packages.length !== 1 ? 's' : ''}
+                  Showing {filteredPackages.length} of {packages.length} package{packages.length !== 1 ? 's' : ''}
                 </div>
+              )}
+
+              {/* Package Action Menu */}
+              {openMenuId && createPortal(
+                <div
+                  className="fixed w-44 bg-white rounded-md shadow-xl z-[9999] border border-gray-200 action-menu"
+                  style={{
+                    top: `${menuPosition.top}px`,
+                    right: `${menuPosition.right}px`,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = packages.find((p) => p.package_id === openMenuId);
+                        if (target) {
+                          handleToggleActive(target);
+                        }
+                        setOpenMenuId(null);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      {(() => {
+                        const target = packages.find((p) => p.package_id === openMenuId);
+                        return target?.is_active ? 'Deactivate' : 'Activate';
+                      })()}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = packages.find((p) => p.package_id === openMenuId);
+                        if (target) {
+                          handleEditClick(target);
+                        }
+                        setOpenMenuId(null);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = packages.find((p) => p.package_id === openMenuId);
+                        if (target) {
+                          handleDelete(target.package_id, target.package_name);
+                        }
+                        setOpenMenuId(null);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>,
+                document.body
               )}
 
               {/* Add/Edit Package Modal - Rendered via Portal to body */}
@@ -527,19 +635,19 @@ const Package = () => {
                           )}
                         </div>
 
-                        {/* Package Type */}
+                        {/* Description */}
                         <div>
-                          <label htmlFor="packageType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                            Package Type
+                          <label htmlFor="description" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                            Description
                           </label>
                           <input
-                            id="packageType"
-                            name="packageType"
+                            id="description"
+                            name="description"
                             type="text"
-                            value={formData.packageType}
+                            value={formData.description}
                             onChange={handleFormChange}
                             className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                            placeholder="e.g., Basic, Premium, Enterprise (optional)"
+                            placeholder="e.g., Best for beginners (optional)"
                           />
                         </div>
 

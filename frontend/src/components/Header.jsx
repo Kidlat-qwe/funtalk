@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   EmailAuthProvider,
@@ -11,6 +11,7 @@ import { API_BASE_URL } from '@/config/api.js';
 
 const Header = ({ user }) => {
   const navigate = useNavigate();
+  const profilePhotoInputRef = useRef(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -27,6 +28,84 @@ const Header = ({ user }) => {
     error: '',
     success: '',
   });
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isUploadingProfilePhoto, setIsUploadingProfilePhoto] = useState(false);
+  const [isProfilePhotoModalOpen, setIsProfilePhotoModalOpen] = useState(false);
+  const [pendingProfilePhotoFile, setPendingProfilePhotoFile] = useState(null);
+  const [pendingProfilePhotoPreviewUrl, setPendingProfilePhotoPreviewUrl] = useState('');
+
+  const normalizeNotificationHref = useCallback(
+    (href, notification) => {
+      const raw = String(href || '').trim();
+      const aliasMap = {
+        '/superadmin/appointments': '/superadmin/appointment',
+      };
+      const normalized = aliasMap[raw] || raw;
+      const role = String(user?.userType || '').toLowerCase();
+
+      const allowedByRole = {
+        superadmin: new Set([
+          '/superadmin/dashboard',
+          '/superadmin/appointment',
+          '/superadmin/invoices',
+          '/superadmin/teacher-availability',
+          '/superadmin/credits',
+          '/superadmin/users',
+          '/superadmin/teachers',
+          '/superadmin/materials',
+          '/superadmin/payment-logs',
+          '/superadmin/installment-invoice',
+          '/superadmin/package',
+        ]),
+        school: new Set([
+          '/school/dashboard',
+          '/school/bookings',
+          '/school/credits',
+          '/school/materials',
+          '/school/students',
+          '/school/packages',
+          '/school/reports',
+        ]),
+        teacher: new Set([
+          '/teacher/dashboard',
+          '/teacher/appointments',
+          '/teacher/availability',
+          '/teacher/materials',
+          '/teacher/profile',
+        ]),
+      };
+
+      const fallbackByRole = {
+        superadmin: '/superadmin/dashboard',
+        school: '/school/dashboard',
+        teacher: '/teacher/dashboard',
+      };
+
+      if (normalized.startsWith('/') && allowedByRole[role]?.has(normalized)) {
+        return normalized;
+      }
+
+      const entityType = String(notification?.entity_type || '').toLowerCase();
+      if (entityType === 'appointment') {
+        if (role === 'superadmin') return '/superadmin/appointment';
+        if (role === 'school') return '/school/bookings';
+        if (role === 'teacher') return '/teacher/appointments';
+      }
+      if (entityType === 'invoice') {
+        if (role === 'superadmin') return '/superadmin/invoices';
+        if (role === 'school') return '/school/credits';
+      }
+      if (entityType === 'availability' && role === 'superadmin') {
+        return '/superadmin/teacher-availability';
+      }
+      if (entityType === 'material') {
+        if (role === 'school') return '/school/materials';
+        if (role === 'teacher') return '/teacher/materials';
+      }
+      return fallbackByRole[role] || '/login';
+    },
+    [user?.userType]
+  );
 
   const handleLogout = async () => {
     try {
@@ -102,7 +181,7 @@ const Header = ({ user }) => {
       }
     } finally {
       setIsNotifOpen(false);
-      if (n?.href) navigate(n.href);
+      navigate(normalizeNotificationHref(n?.href, n));
       fetchUnreadCount();
       fetchNotifications();
     }
@@ -136,6 +215,129 @@ const Header = ({ user }) => {
       return (names[0][0] + names[1][0]).toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
+  };
+
+  const toAbsoluteUrl = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (raw.startsWith('http')) return raw;
+    if (raw.startsWith('/')) return `${API_BASE_URL.replace('/api', '')}${raw}`;
+    return raw;
+  };
+
+  const syncStoredUser = (patch = {}) => {
+    try {
+      const raw = localStorage.getItem('user');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      localStorage.setItem('user', JSON.stringify({ ...parsed, ...patch }));
+    } catch {
+      // no-op
+    }
+  };
+
+  const fetchCurrentUserProfilePhoto = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) return;
+      const next = toAbsoluteUrl(data?.data?.user?.profile_picture);
+      setAvatarUrl(next);
+      syncStoredUser({ profile_picture: data?.data?.user?.profile_picture || '' });
+    } catch (error) {
+      console.error('Unable to load profile photo:', error);
+    }
+  }, []);
+
+  const handleChangeProfilePictureClick = () => {
+    setIsMenuOpen(false);
+    setPendingProfilePhotoFile(null);
+    setPendingProfilePhotoPreviewUrl('');
+    setIsProfilePhotoModalOpen(true);
+  };
+
+  const handleProfilePhotoSelected = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const allowedTypes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']);
+    if (!allowedTypes.has(file.type)) {
+      window.appAlert?.('Invalid image type. Please upload JPG, PNG, GIF, or WEBP.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      window.appAlert?.('Image is too large. Please upload a file smaller than 10MB.');
+      return;
+    }
+
+    if (pendingProfilePhotoPreviewUrl) {
+      URL.revokeObjectURL(pendingProfilePhotoPreviewUrl);
+    }
+    setPendingProfilePhotoFile(file);
+    setPendingProfilePhotoPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleProfilePhotoUpload = async () => {
+    if (!pendingProfilePhotoFile) {
+      window.appAlert?.('Please select an image first.');
+      return;
+    }
+
+    setIsUploadingProfilePhoto(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.appAlert?.('Session expired. Please log in again.');
+        return;
+      }
+      const payload = new FormData();
+      payload.append('profilePhoto', pendingProfilePhotoFile);
+      const response = await fetch(`${API_BASE_URL}/auth/me/profile-picture`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: payload,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        window.appAlert?.(data.message || 'Failed to update profile picture.');
+        return;
+      }
+
+      const savedPath = data?.data?.user?.profile_picture || '';
+      setAvatarUrl(toAbsoluteUrl(savedPath));
+      syncStoredUser({ profile_picture: savedPath });
+      window.dispatchEvent(
+        new CustomEvent('funtalk:profile-picture-updated', {
+          detail: { profilePicture: savedPath },
+        })
+      );
+      setIsProfilePhotoModalOpen(false);
+      setPendingProfilePhotoFile(null);
+      if (pendingProfilePhotoPreviewUrl) {
+        URL.revokeObjectURL(pendingProfilePhotoPreviewUrl);
+      }
+      setPendingProfilePhotoPreviewUrl('');
+      window.appAlert?.('Profile picture updated successfully.');
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      window.appAlert?.('Error uploading profile picture. Please try again.');
+    } finally {
+      setIsUploadingProfilePhoto(false);
+    }
+  };
+
+  const closeProfilePhotoModal = () => {
+    if (isUploadingProfilePhoto) return;
+    setIsProfilePhotoModalOpen(false);
+    setPendingProfilePhotoFile(null);
+    if (pendingProfilePhotoPreviewUrl) {
+      URL.revokeObjectURL(pendingProfilePhotoPreviewUrl);
+    }
+    setPendingProfilePhotoPreviewUrl('');
   };
 
   const closeChangePasswordModal = () => {
@@ -306,6 +508,23 @@ const Header = ({ user }) => {
     };
   }, [fetchNotifications, fetchUnreadCount, isNotifOpen]);
 
+  useEffect(() => {
+    const localProfilePath = user?.profile_picture || user?.profilePicture || '';
+    setAvatarUrl(toAbsoluteUrl(localProfilePath));
+  }, [user?.profile_picture, user?.profilePicture]);
+
+  useEffect(() => {
+    fetchCurrentUserProfilePhoto();
+  }, [fetchCurrentUserProfilePhoto]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingProfilePhotoPreviewUrl) {
+        URL.revokeObjectURL(pendingProfilePhotoPreviewUrl);
+      }
+    };
+  }, [pendingProfilePhotoPreviewUrl]);
+
   return (
     <header className="bg-gradient-to-r from-[#A7816D] via-[#AF8F7E] to-[#B66681] shadow-soft border-b border-white/20 sticky top-0 z-50">
       {/* UI: consistent header container + spacing */}
@@ -412,6 +631,13 @@ const Header = ({ user }) => {
 
             {/* User info with dropdown */}
             <div className="relative user-menu-container">
+              <input
+                ref={profilePhotoInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                onChange={handleProfilePhotoSelected}
+                className="hidden"
+              />
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="flex items-center gap-3 hover:bg-white/15 rounded-lg px-2.5 py-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-white/40"
@@ -420,8 +646,12 @@ const Header = ({ user }) => {
                   <p className="text-sm font-medium text-white">{user?.name || 'User'}</p>
                   <p className="text-xs text-[#f7edf1] capitalize">{user?.userType || 'user'}</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white font-semibold">
-                  {getUserInitials(user?.name)}
+                <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white font-semibold overflow-hidden">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    getUserInitials(user?.name)
+                  )}
                 </div>
                 <svg
                   className={`w-4 h-4 text-white transition-transform ${isMenuOpen ? 'rotate-180' : ''}`}
@@ -447,11 +677,8 @@ const Header = ({ user }) => {
                       <p className="text-xs text-[#f7edf1] capitalize">{user?.userType || 'user'}</p>
                     </div>
                     <button
-                      onClick={() => {
-                        // TODO: Implement change profile picture
-                        alert('Change profile picture functionality coming soon');
-                        setIsMenuOpen(false);
-                      }}
+                      onClick={handleChangeProfilePictureClick}
+                      disabled={isUploadingProfilePhoto}
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 flex items-center gap-2 transition-colors"
                     >
                       <svg
@@ -467,7 +694,7 @@ const Header = ({ user }) => {
                           d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                         />
                       </svg>
-                      <span>Change Profile Picture</span>
+                      <span>{isUploadingProfilePhoto ? 'Uploading picture...' : 'Change Profile Picture'}</span>
                     </button>
                     <button
                       onClick={openChangePasswordModal}
@@ -517,6 +744,95 @@ const Header = ({ user }) => {
           </div>
         </div>
       </div>
+
+      {isProfilePhotoModalOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close change profile picture modal"
+            className="absolute inset-0 bg-black/50"
+            onClick={closeProfilePhotoModal}
+          />
+          <div
+            className="relative w-full max-w-2xl rounded-xl bg-white shadow-2xl border border-gray-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-gray-900">Change Profile Picture</h3>
+              <button
+                type="button"
+                onClick={closeProfilePhotoModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close profile picture modal"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-6">
+              <div className="flex flex-col items-center">
+                <p className="text-sm text-gray-500">Current profile picture</p>
+                <div className="mt-3 h-24 w-24 rounded-full border-4 border-gray-100 overflow-hidden bg-gray-100 flex items-center justify-center">
+                  {pendingProfilePhotoPreviewUrl ? (
+                    <img src={pendingProfilePhotoPreviewUrl} alt="Selected profile preview" className="h-full w-full object-cover" />
+                  ) : avatarUrl ? (
+                    <img src={avatarUrl} alt="Current profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-lg font-semibold text-gray-600">{getUserInitials(user?.name)}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <input
+                  ref={profilePhotoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                  onChange={handleProfilePhotoSelected}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => profilePhotoInputRef.current?.click()}
+                  className="w-full rounded-xl border-2 border-dashed border-gray-300 hover:border-primary-400 bg-gray-50/50 hover:bg-primary-50/30 px-4 py-8 transition-colors"
+                  disabled={isUploadingProfilePhoto}
+                >
+                  <div className="mx-auto w-11 h-11 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-gray-700">
+                    {pendingProfilePhotoFile ? pendingProfilePhotoFile.name : 'Click to upload a new profile picture'}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">PNG, JPG, GIF, WEBP up to 10MB</p>
+                </button>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeProfilePhotoModal}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm font-medium"
+                disabled={isUploadingProfilePhoto}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProfilePhotoUpload}
+                className="px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 text-sm font-medium disabled:opacity-60"
+                disabled={isUploadingProfilePhoto || !pendingProfilePhotoFile}
+              >
+                {isUploadingProfilePhoto ? 'Uploading...' : 'Upload photo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isChangePasswordOpen && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -26,9 +27,73 @@ import SchoolCredits from './pages/school/schoolCredits';
 import SchoolReports from './pages/school/schoolReports';
 import './App.css';
 
+const MODAL_OVERLAY_SELECTOR = [
+  '[class*="fixed"][class*="bg-black"][class*="backdrop-blur"]',
+  '[class*="fixed"][class*="inset-0"][class*="bg-black"]',
+  '[class*="fixed"][class*="inset-0"][class*="backdrop-blur"]',
+].join(', ');
+
+const GlobalModalScrollLock = () => {
+  useEffect(() => {
+    const body = document.body;
+    const html = document.documentElement;
+    let isLocked = false;
+    let lockedScrollY = 0;
+
+    const setScrollLock = (shouldLock) => {
+      if (shouldLock === isLocked) return;
+      isLocked = shouldLock;
+
+      if (shouldLock) {
+        lockedScrollY = window.scrollY || window.pageYOffset || 0;
+        body.style.position = 'fixed';
+        body.style.top = `-${lockedScrollY}px`;
+        body.style.left = '0';
+        body.style.right = '0';
+        body.style.width = '100%';
+        body.style.overflow = 'hidden';
+        html.style.overflow = 'hidden';
+        return;
+      }
+
+      body.style.position = '';
+      body.style.top = '';
+      body.style.left = '';
+      body.style.right = '';
+      body.style.width = '';
+      body.style.overflow = '';
+      html.style.overflow = '';
+      window.scrollTo(0, lockedScrollY);
+    };
+
+    const syncLockState = () => {
+      const hasModalOverlay = document.querySelector(MODAL_OVERLAY_SELECTOR) !== null;
+      setScrollLock(hasModalOverlay);
+    };
+
+    syncLockState();
+
+    const observer = new MutationObserver(syncLockState);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => {
+      observer.disconnect();
+      setScrollLock(false);
+    };
+  }, []);
+
+  return null;
+};
+
 function App() {
   return (
     <Router>
+      <GlobalModalScrollLock />
       <Routes>
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />

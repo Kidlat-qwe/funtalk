@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 function toInputDate(value) {
@@ -524,31 +525,31 @@ const InstallmentInvoice = () => {
                     <table className="min-w-[1280px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             School
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Plan / cycle
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">
                             Total amount to pay
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[240px]">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider w-[240px]">
                             Installment progress
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Next due
                           </th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 tracking-wider">
                             Status
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">
                             Total credits
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Last invoice
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-primary-700 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-right text-xs font-medium text-primary-700 tracking-wider">
                             Actions
                           </th>
                         </tr>
@@ -659,7 +660,7 @@ const InstallmentInvoice = () => {
         </main>
       </div>
 
-      {openActionMenuId != null && (
+      {openActionMenuId != null && createPortal(
         <div
           className="fixed w-52 bg-white rounded-md shadow-xl z-[9999] border border-gray-200 action-menu"
           style={{ top: `${menuPosition.top}px`, right: `${menuPosition.right}px` }}
@@ -703,7 +704,8 @@ const InstallmentInvoice = () => {
               Delete
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {generateModalRow && (
@@ -721,7 +723,7 @@ const InstallmentInvoice = () => {
           >
             <div className="sticky top-0 z-10 flex items-start justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200 bg-white rounded-t-xl">
               <div className="min-w-0">
-                <h2 id="generate-invoice-title" className="text-base sm:text-lg font-bold text-gray-900 uppercase tracking-tight">
+                <h2 id="generate-invoice-title" className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
                   Generate invoice — single
                 </h2>
                 <p className="text-sm text-gray-700 mt-1 break-words">

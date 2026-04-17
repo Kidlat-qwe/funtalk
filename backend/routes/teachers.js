@@ -15,7 +15,7 @@ const router = express.Router();
 router.get(
   '/',
   [
-    queryValidator('status').optional().isIn(['active', 'pending', 'inactive']),
+    queryValidator('status').optional().isIn(['active', 'inactive']),
     queryValidator('gender').optional().isString(),
     queryValidator('search').optional().isString(),
     handleValidationErrors,
@@ -81,7 +81,7 @@ router.put(
   authenticate,
   isAdmin,
   [
-    body('status').isIn(['active', 'pending', 'inactive']).withMessage('Invalid status'),
+    body('status').isIn(['active', 'inactive']).withMessage('Invalid status'),
     handleValidationErrors,
   ],
   teacherController.updateTeacherStatus

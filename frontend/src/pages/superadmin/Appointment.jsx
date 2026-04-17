@@ -872,6 +872,43 @@ const Appointment = () => {
                 </nav>
               </div>
 
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+                <div className="min-w-0 flex-1 sm:max-w-md">
+                  <input
+                    id="appointments-search"
+                    type="search"
+                    aria-label="Search appointments"
+                    placeholder="Search by student name"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    autoComplete="off"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+                <div className="w-full sm:w-auto sm:min-w-[10rem]">
+                  <select
+                    id="appointments-status-filter"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                    aria-label="Filter appointments by status"
+                  >
+                    <option value="">All statuses</option>
+                    {appointmentsTab === 'history' ? (
+                      <>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
               {/* Appointments Table */}
               <div className="bg-white rounded-lg shadow">
                 {isFetching ? (
@@ -910,54 +947,28 @@ const Appointment = () => {
                     <table className="w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="text"
-                                placeholder="Search..."
-                                value={studentSearch}
-                                onChange={(e) => setStudentSearch(e.target.value)}
-                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500 w-32"
-                              />
-                            </div>
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                            Student
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
                             Teacher
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">
                             School
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Date & Time
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
                             Class Type
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">
                             Material
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                            <select
-                              value={statusFilter}
-                              onChange={(e) => setStatusFilter(e.target.value)}
-                              className="text-xs font-medium text-gray-500 bg-transparent border-0 rounded px-2 py-1 focus:ring-1 focus:ring-primary-500 focus:outline-none max-w-[9rem]"
-                              aria-label="Filter by status"
-                            >
-                              <option value="">Status</option>
-                              {appointmentsTab === 'history' ? (
-                                <>
-                                  <option value="completed">Completed</option>
-                                  <option value="cancelled">Cancelled</option>
-                                </>
-                              ) : (
-                                <>
-                                  <option value="pending">Pending</option>
-                                  <option value="approved">Approved</option>
-                                </>
-                              )}
-                            </select>
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                            Status
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
                             Actions
                           </th>
                         </tr>
@@ -1075,9 +1086,9 @@ const Appointment = () => {
               )}
 
               {/* Action Menu Dropdown */}
-              {openMenuId && (
+              {openMenuId && createPortal(
                 <div
-                  className="fixed w-40 sm:w-48 bg-white rounded-md shadow-xl z-[9999] border border-gray-200"
+                  className="fixed w-40 sm:w-48 bg-white rounded-md shadow-xl z-[9999] border border-gray-200 action-menu"
                   style={{
                     top: `${menuPosition.top}px`,
                     right: `${menuPosition.right}px`,
@@ -1133,7 +1144,8 @@ const Appointment = () => {
                       </>
                     )}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
 
               {/* View details (read-only) */}

@@ -91,11 +91,13 @@ const receiptFileFilter = (req, file, cb) => {
     'image/jpg',
     'image/png',
     'image/webp',
+    'image/heic',
+    'image/heif',
   ];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid receipt file type. Allowed: PDF, JPG, PNG, WEBP'), false);
+    cb(new Error('Invalid receipt file type. Allowed: PDF, JPG, PNG, WEBP, HEIC, HEIF'), false);
   }
 };
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
@@ -117,7 +118,13 @@ const Invoices = () => {
         },
         body: payload,
       });
-      const data = await response.json();
+      const raw = await response.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = { message: raw };
+      }
       if (!response.ok || !data.success) {
         alert(data.message || 'Failed to mark invoice as paid');
         return;
@@ -334,6 +341,36 @@ const Invoices = () => {
                 </div>
               </div>
 
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+                <div className="min-w-0 flex-1 sm:max-w-md">
+                  <input
+                    id="invoices-search"
+                    type="search"
+                    aria-label="Search invoices"
+                    placeholder="Search by invoice number"
+                    value={invoiceNumberSearch}
+                    onChange={(e) => setInvoiceNumberSearch(e.target.value)}
+                    autoComplete="off"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+                <div className="w-full sm:w-auto sm:min-w-[10rem]">
+                  <select
+                    id="invoices-status-filter"
+                    aria-label="Filter invoices by status"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                  >
+                    <option value="">All statuses</option>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Invoices Table */}
               <div className="card">
                 {isFetching ? (
@@ -368,37 +405,19 @@ const Invoices = () => {
                     <table className="w-full table-fixed divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="text"
-                                placeholder="Search..."
-                                value={invoiceNumberSearch}
-                                onChange={(e) => setInvoiceNumberSearch(e.target.value)}
-                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500 w-32"
-                              />
-                            </div>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                            Invoice number
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Package</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                            <select
-                              value={statusFilter}
-                              onChange={(e) => setStatusFilter(e.target.value)}
-                              className="text-xs font-medium text-gray-500 bg-transparent border-0 rounded px-2 py-1 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                            >
-                              <option value="">Status</option>
-                              <option value="paid">Paid</option>
-                              <option value="pending">Pending</option>
-                              <option value="overdue">Overdue</option>
-                              <option value="cancelled">Cancelled</option>
-                            </select>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Customer</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">Package</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Amount</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                            Status
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Due Date</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Receipt</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Created</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Actions</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Due Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">Receipt</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Created</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -481,7 +500,7 @@ const Invoices = () => {
                 )}
               </div>
 
-              {openActionMenuId && (
+              {openActionMenuId && createPortal(
                 <div
                   className="fixed w-44 bg-white rounded-md shadow-xl z-[9999] border border-gray-200 action-menu"
                   style={{ top: `${menuPosition.top}px`, right: `${menuPosition.right}px` }}
@@ -527,7 +546,8 @@ const Invoices = () => {
                       })()}
                     </button>
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
 
               {payModalInvoice && (
@@ -603,7 +623,7 @@ const Invoices = () => {
                           </label>
                           <input
                             type="file"
-                            accept="image/*,.pdf"
+                            accept=".pdf,image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
                             onChange={(e) =>
                               setPayForm((prev) => ({ ...prev, paymentAttachment: e.target.files?.[0] || null }))
                             }

@@ -6,6 +6,7 @@ import {
   removeMaterialFileFromStorage,
 } from '../services/s3Materials.js';
 import fs from 'fs';
+import { notifyMaterialUploaded } from '../services/notificationDispatchService.js';
 
 /**
  * @desc    Get all materials
@@ -140,6 +141,15 @@ export const createMaterial = async (req, res) => {
         message: 'Material name is required',
       });
     }
+    if (!materialType || !String(materialType).trim()) {
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'Material type is required',
+      });
+    }
     
     const userType = req.user?.userType || 'teacher';
 
@@ -180,6 +190,12 @@ export const createMaterial = async (req, res) => {
     ];
     
     const result = await query(sqlQuery, values);
+    await notifyMaterialUploaded({
+      userId: req.user?.userId,
+      userType,
+      materialId: result.rows[0]?.material_id,
+      materialName,
+    });
     
     res.status(201).json({
       success: true,
@@ -252,8 +268,14 @@ export const updateMaterial = async (req, res) => {
     }
     
     if (materialType !== undefined) {
+      if (!String(materialType).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Material type is required',
+        });
+      }
       updates.push(`material_type = $${paramIndex}`);
-      values.push(materialType || null);
+      values.push(String(materialType).trim());
       paramIndex++;
     }
     

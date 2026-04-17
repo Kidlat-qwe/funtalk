@@ -2,7 +2,8 @@ import express from 'express';
 import { body } from 'express-validator';
 import { handleValidationErrors } from '../middleware/validation.js';
 import * as authController from '../controllers/authController.js';
-import { uploadReceipt } from '../middleware/upload.js';
+import { uploadMaterial, uploadReceipt } from '../middleware/upload.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -38,6 +39,14 @@ router.post(
     body('userType')
       .isIn(['superadmin', 'school', 'teacher'])
       .withMessage('Invalid user type. Must be: superadmin, school, or teacher'),
+    body('teacherEmploymentType')
+      .optional({ nullable: true, checkFalsy: true })
+      .isIn(['part_time', 'full_time'])
+      .withMessage('Teacher employment type must be part_time or full_time'),
+    body('gender')
+      .optional({ nullable: true, checkFalsy: true })
+      .isIn(['male', 'female', 'other'])
+      .withMessage('Gender must be male, female, or other'),
     body('phoneNumber').optional({ nullable: true, checkFalsy: true }).isString().withMessage('Phone number must be a string'),
     body('billingType').optional({ nullable: true, checkFalsy: true }).isString().withMessage('Billing type must be a string'),
     body('billingConfig')
@@ -76,7 +85,19 @@ router.post(
  * @desc    Get current user profile
  * @access  Private
  */
-router.get('/me', authController.getCurrentUser);
+router.get('/me', authenticate, authController.getCurrentUser);
+
+/**
+ * @route   PUT /api/auth/me/profile-picture
+ * @desc    Update current user profile picture
+ * @access  Private
+ */
+router.put(
+  '/me/profile-picture',
+  authenticate,
+  uploadMaterial.single('profilePhoto'),
+  authController.updateMyProfilePicture
+);
 
 /**
  * @route   POST /api/auth/refresh

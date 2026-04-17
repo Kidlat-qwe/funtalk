@@ -266,12 +266,12 @@ const Credits = () => {
                           <table className="w-full divide-y divide-gray-200" style={{ minWidth: '900px' }}>
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Last Updated</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">User</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Email</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Role</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Credits</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Balance</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">Last Updated</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -321,12 +321,12 @@ const Credits = () => {
                           <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1100px' }}>
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Settled Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Type</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">Installments</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Description</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Settled Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">User</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Type</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Amount</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">Installments</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">Description</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">

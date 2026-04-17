@@ -392,7 +392,7 @@ const SchoolStudents = () => {
                     <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1000px' }}>
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             <div className="flex items-center space-x-2">
                               <input
                                 type="text"
@@ -404,8 +404,8 @@ const SchoolStudents = () => {
                               />
                             </div>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Age</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             <select
                               value={levelFilter}
                               onChange={(e) => setLevelFilter(e.target.value)}
@@ -420,10 +420,10 @@ const SchoolStudents = () => {
                               ))}
                             </select>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Email</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Parent Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Parent Contact</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Email</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Parent Name</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Parent Contact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             <select
                               value={statusFilter}
                               onChange={(e) => setStatusFilter(e.target.value)}
@@ -435,8 +435,8 @@ const SchoolStudents = () => {
                               <option value="inactive">Inactive</option>
                             </select>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Created</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">Created</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">

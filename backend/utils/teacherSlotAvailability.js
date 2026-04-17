@@ -111,15 +111,30 @@ export async function computeAvailableSlotsDetailForTeacherDate(
   const dayOfWeek = getLocalDayOfWeek(date);
   const { excludeAppointmentId, targetClassType } = options;
   const normalizedTargetClassType = normalizeClassType(targetClassType);
-
-  const availabilityResult = await queryFn(
+  const teacherResult = await queryFn(
     `
-      SELECT start_time, end_time
-      FROM teacheravailabilitytbl
-      WHERE teacher_id = $1 AND day_of_week = $2 AND is_active = true
+      SELECT employment_type
+      FROM teachertbl
+      WHERE teacher_id = $1
+      LIMIT 1
     `,
-    [teacherId, dayOfWeek]
+    [teacherId]
   );
+  const teacherEmploymentType = String(teacherResult.rows[0]?.employment_type || 'part_time').toLowerCase();
+  const isFullTimeTeacher = teacherEmploymentType === 'full_time';
+
+  const availabilityResult = isFullTimeTeacher
+    ? {
+        rows: [{ start_time: '00:00', end_time: '24:00' }],
+      }
+    : await queryFn(
+        `
+          SELECT start_time, end_time
+          FROM teacheravailabilitytbl
+          WHERE teacher_id = $1 AND day_of_week = $2 AND is_active = true
+        `,
+        [teacherId, dayOfWeek]
+      );
 
   const exceptionResult = await queryFn(
     `

@@ -1,5 +1,6 @@
 import { query } from '../config/database.js';
 import { computeAvailableSlotsDetailForTeacherDate } from '../utils/teacherSlotAvailability.js';
+import { notifyAvailabilityChanged } from '../services/notificationDispatchService.js';
 
 /**
  * @desc    Get teacher's availability schedule
@@ -119,6 +120,11 @@ export const setAvailability = async (req, res) => {
     ];
     
     const result = await query(sqlQuery, values);
+    await notifyAvailabilityChanged({
+      teacherId,
+      changeType: 'added an availability slot',
+      detail: `Day ${dayOfWeek}, ${startTime}-${endTime}`,
+    });
     
     res.status(201).json({
       success: true,
@@ -202,6 +208,11 @@ export const updateAvailability = async (req, res) => {
     `;
     
     const result = await query(updateQuery, values);
+    await notifyAvailabilityChanged({
+      teacherId,
+      changeType: 'updated availability',
+      detail: `availability_id=${id}`,
+    });
     
     res.status(200).json({
       success: true,
@@ -247,6 +258,11 @@ export const deleteAvailability = async (req, res) => {
       'DELETE FROM teacheravailabilitytbl WHERE availability_id = $1 RETURNING *',
       [id]
     );
+    await notifyAvailabilityChanged({
+      teacherId,
+      changeType: 'removed an availability slot',
+      detail: `availability_id=${id}`,
+    });
     
     res.status(200).json({
       success: true,
@@ -290,6 +306,11 @@ export const addException = async (req, res) => {
     ];
     
     const result = await query(sqlQuery, values);
+    await notifyAvailabilityChanged({
+      teacherId,
+      changeType: 'added an availability exception',
+      detail: `Date ${exceptionDate}`,
+    });
     
     res.status(201).json({
       success: true,
@@ -387,6 +408,11 @@ export const deleteException = async (req, res) => {
       'DELETE FROM teacheravailabilityexceptionstbl WHERE exception_id = $1',
       [id]
     );
+    await notifyAvailabilityChanged({
+      teacherId,
+      changeType: 'removed an availability exception',
+      detail: `exception_id=${id}`,
+    });
     
     res.status(200).json({
       success: true,

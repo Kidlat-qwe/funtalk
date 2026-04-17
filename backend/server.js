@@ -11,6 +11,7 @@ import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { query } from './config/database.js';
 import { ensureSubscriptionSchema } from './services/billingSubscriptionService.js';
 import { ensureNotificationSchema } from './services/notificationService.js';
+import { dispatchInvoiceDueReminders, dispatchUpcomingClassReminders } from './services/notificationDispatchService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,6 +58,22 @@ const testDatabaseConnection = async () => {
   }
 };
 
+const ensureTeacherSchema = async () => {
+  await query(
+    `ALTER TABLE teachertbl
+     ADD COLUMN IF NOT EXISTS employment_type VARCHAR(20) NOT NULL DEFAULT 'part_time'`
+  );
+  await query(
+    `ALTER TABLE teachertbl
+     DROP CONSTRAINT IF EXISTS teachertbl_employment_type_check`
+  );
+  await query(
+    `ALTER TABLE teachertbl
+     ADD CONSTRAINT teachertbl_employment_type_check
+     CHECK (employment_type IN ('part_time', 'full_time'))`
+  );
+};
+
 // API Routes
 app.use('/api', routes);
 
@@ -85,6 +102,19 @@ const startServer = async () => {
     console.log('✅ Billing subscription schema ready');
     await ensureNotificationSchema();
     console.log('✅ Notification schema ready');
+    await ensureTeacherSchema();
+    console.log('✅ Teacher schema ready');
+
+    const runNotificationSweep = async () => {
+      try {
+        await dispatchUpcomingClassReminders();
+        await dispatchInvoiceDueReminders();
+      } catch (error) {
+        console.error('Notification sweep failed:', error.message);
+      }
+    };
+    await runNotificationSweep();
+    setInterval(runNotificationSweep, 60 * 1000);
     
     // Start listening
     app.listen(PORT, () => {

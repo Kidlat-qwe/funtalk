@@ -26,6 +26,7 @@ const Users = () => {
     email: '',
     password: '',
     phoneNumber: '',
+    gender: '',
     userType: 'school',
     billingType: '',
     billingConfig: {
@@ -42,6 +43,7 @@ const Users = () => {
     paymentStatus: 'pending',
     paymentType: 'bank_transfer',
     initialPaymentAmount: '',
+    teacherEmploymentType: 'part_time',
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,6 +104,7 @@ const Users = () => {
       email: '',
       password: '',
       phoneNumber: '',
+      gender: '',
       userType: 'school',
       billingType: '',
       billingConfig: {
@@ -118,6 +121,7 @@ const Users = () => {
       paymentStatus: 'pending',
       paymentType: 'bank_transfer',
       initialPaymentAmount: '',
+      teacherEmploymentType: 'part_time',
     });
     setReceiptFile(null);
     setFormErrors({});
@@ -176,6 +180,8 @@ const Users = () => {
         billingType: '', // Clear billing type when not school
         paymentStatus: 'pending',
         initialPaymentAmount: '',
+        gender: value === 'teacher' ? prev.gender || '' : '',
+        teacherEmploymentType: value === 'teacher' ? prev.teacherEmploymentType || 'part_time' : 'part_time',
       }));
       setReceiptFile(null);
       // Clear billing type error if user type is not school
@@ -232,6 +238,12 @@ const Users = () => {
 
     if (!formData.userType) {
       newErrors.userType = 'Please select a user type';
+    }
+    if (!editingUserId && formData.userType === 'teacher' && !formData.gender) {
+      newErrors.gender = 'Please select gender';
+    }
+    if (formData.userType === 'teacher' && !formData.teacherEmploymentType) {
+      newErrors.teacherEmploymentType = 'Please select teacher type';
     }
 
     // Billing type is only required for school user type
@@ -328,6 +340,9 @@ const Users = () => {
             requestBody.billingConfig = buildPattyBillingConfig();
           }
         }
+        if (formData.userType === 'teacher') {
+          requestBody.teacherEmploymentType = formData.teacherEmploymentType || 'part_time';
+        }
 
         const response = await fetch(`${API_BASE_URL}/users/${editingUserId}`, {
           method: 'PUT',
@@ -394,6 +409,12 @@ const Users = () => {
         if (formData.billingType === 'patty' || formData.billingType === 'explore') {
           requestBody.billingConfig = buildPattyBillingConfig();
         }
+      }
+      if (formData.userType === 'teacher') {
+        requestBody.teacherEmploymentType = formData.teacherEmploymentType || 'part_time';
+      }
+      if (!editingUserId && formData.userType === 'teacher') {
+        requestBody.gender = formData.gender || '';
       }
 
       const payload = new FormData();
@@ -481,6 +502,7 @@ const Users = () => {
         email: u.email || '',
         password: '',
         phoneNumber: u.phone_number || '',
+        gender: u.gender || '',
         userType: u.user_type || 'school',
         billingType: billingTypeRaw,
         billingConfig: pb
@@ -508,6 +530,7 @@ const Users = () => {
         paymentStatus: 'pending',
         paymentType: 'bank_transfer',
         initialPaymentAmount: '',
+        teacherEmploymentType: u.teacher_employment_type || 'part_time',
       });
       setReceiptFile(null);
     } catch (err) {
@@ -606,16 +629,32 @@ const Users = () => {
     }
   };
 
-  // Filter users based on name search
+  const searchQuery = nameSearch.trim().toLowerCase();
+
+  // Filter users by name or email (search is client-side; toolbar stays visible when zero matches)
   const filteredUsers = users.filter((u) => {
-    const matchesName = !nameSearch || u.name?.toLowerCase().includes(nameSearch.toLowerCase());
-    return matchesName;
+    if (!searchQuery) return true;
+    const name = String(u.name || '').toLowerCase();
+    const email = String(u.email || '').toLowerCase();
+    return name.includes(searchQuery) || email.includes(searchQuery);
   });
+
+  const emptyListNoFilters =
+    users.length === 0 && !roleFilter && !nameSearch.trim();
+  const noMatchesWithData = users.length > 0 && filteredUsers.length === 0;
 
   // Format user type for display
   const formatUserType = (userType) => {
     if (!userType) return 'N/A';
     return userType.charAt(0).toUpperCase() + userType.slice(1);
+  };
+
+  const getRoleBadgeClass = (userType) => {
+    const role = String(userType || '').toLowerCase();
+    if (role === 'superadmin') return 'bg-purple-100 text-purple-800';
+    if (role === 'school') return 'bg-emerald-100 text-emerald-800';
+    if (role === 'teacher') return 'bg-sky-100 text-sky-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const formatLastLogin = (lastLogin) => {
@@ -679,6 +718,14 @@ const Users = () => {
   };
 
   const overdueCount = Object.values(subscriptionStatusByUserId).filter((s) => s.is_overdue).length;
+
+  const toAbsoluteUrl = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (raw.startsWith('http')) return raw;
+    if (raw.startsWith('/')) return `${API_BASE_URL.replace('/api', '')}${raw}`;
+    return raw;
+  };
 
   // Get user initials for avatar
   const getInitials = (name) => {
@@ -828,69 +875,92 @@ const Users = () => {
                     <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-primary-600 mx-auto"></div>
                     <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-600">Loading users...</p>
                   </div>
-                ) : filteredUsers.length === 0 ? (
-                  <div className="p-8 sm:p-10 md:p-12 text-center">
-                    <svg
-                      className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                      />
-                    </svg>
-                    <h3 className="mt-3 sm:mt-4 text-base sm:text-lg font-medium text-gray-900">No users found</h3>
-                    <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">
-                      {nameSearch || roleFilter
-                        ? 'Try adjusting your filters'
-                        : 'Get started by adding a new user'}
-                    </p>
-                  </div>
                 ) : (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 px-4 py-3 sm:px-6 border-b border-gray-200 bg-gray-50/90">
+                      <div className="flex flex-col min-w-0 flex-1 sm:max-w-md">
+                        <input
+                          id="users-search"
+                          type="search"
+                          aria-label="Search users"
+                          placeholder="Search by name or email"
+                          value={nameSearch}
+                          onChange={(e) => setNameSearch(e.target.value)}
+                          autoComplete="off"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                      </div>
+                      <div className="flex flex-col w-full sm:w-auto sm:min-w-[10rem]">
+                        <select
+                          id="users-role-filter"
+                          aria-label="Filter users by role"
+                          value={roleFilter}
+                          onChange={(e) => setRoleFilter(e.target.value)}
+                          className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                        >
+                          <option value="">All roles</option>
+                          <option value="superadmin">Superadmin</option>
+                          <option value="school">School</option>
+                          <option value="teacher">Teacher</option>
+                        </select>
+                      </div>
+                    </div>
+                    {filteredUsers.length === 0 ? (
+                      <div className="p-8 sm:p-10 md:p-12 text-center">
+                        <svg
+                          className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                          />
+                        </svg>
+                        <h3 className="mt-3 sm:mt-4 text-base sm:text-lg font-medium text-gray-900">
+                          {noMatchesWithData
+                            ? 'No matching users'
+                            : users.length === 0 && roleFilter
+                              ? 'No users for this role'
+                              : 'No users yet'}
+                        </h3>
+                        <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">
+                          {noMatchesWithData
+                            ? 'Try a different name, email, or clear the search.'
+                            : emptyListNoFilters
+                              ? 'Get started by adding a new user.'
+                              : users.length === 0 && roleFilter
+                                ? 'Choose another role or clear the role filter.'
+                                : 'Try adjusting your search or role filter.'}
+                        </p>
+                      </div>
+                    ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="text"
-                                placeholder="Search..."
-                                value={nameSearch}
-                                onChange={(e) => setNameSearch(e.target.value)}
-                                className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                              />
-                            </div>
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                            Name
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            EMAIL
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                            Email
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                            <select
-                              value={roleFilter}
-                              onChange={(e) => setRoleFilter(e.target.value)}
-                              className="text-xs font-medium text-gray-500 bg-transparent border-0 rounded px-2 py-1 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                            >
-                              <option value="">Role</option>
-                              <option value="superadmin">Superadmin</option>
-                              <option value="school">School</option>
-                              <option value="teacher">Teacher</option>
-                            </select>
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
+                            Role
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                            Billing Type
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
+                            Billing type
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
                             Status
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden xl:table-cell">
-                            Last Login
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">
+                            Last login
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
                             Actions
                           </th>
                         </tr>
@@ -900,8 +970,16 @@ const Users = () => {
                           <tr key={userItem.user_id} className="hover:bg-gray-50">
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className={`flex-shrink-0 h-10 w-10 rounded-full ${getAvatarColor(userItem.name)} flex items-center justify-center text-white font-medium text-sm`}>
-                                  {getInitials(userItem.name)}
+                                <div className={`flex-shrink-0 h-10 w-10 rounded-full ${getAvatarColor(userItem.name)} flex items-center justify-center text-white font-medium text-sm overflow-hidden`}>
+                                  {toAbsoluteUrl(userItem.profile_picture) ? (
+                                    <img
+                                      src={toAbsoluteUrl(userItem.profile_picture)}
+                                      alt={`${userItem.name || 'User'} profile`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    getInitials(userItem.name)
+                                  )}
                                 </div>
                                 <div className="ml-3 md:ml-4">
                                   <div className="text-sm font-medium text-gray-900">{userItem.name || 'N/A'}</div>
@@ -912,7 +990,7 @@ const Users = () => {
                               <div className="text-sm text-gray-900">{userItem.email || 'N/A'}</div>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(userItem.user_type)}`}>
                                 {formatUserType(userItem.user_type)}
                               </span>
                             </td>
@@ -985,6 +1063,8 @@ const Users = () => {
                       </tbody>
                     </table>
                   </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -996,9 +1076,9 @@ const Users = () => {
               )}
 
               {/* Action Menu Dropdown - Rendered outside table */}
-              {openMenuId && (
+              {openMenuId && createPortal(
                 <div
-                  className="fixed w-40 sm:w-48 bg-white rounded-md shadow-xl z-[9999] border border-gray-200"
+                  className="fixed w-40 sm:w-48 bg-white rounded-md shadow-xl z-[9999] border border-gray-200 action-menu"
                   style={{
                     top: `${menuPosition.top}px`,
                     right: `${menuPosition.right}px`,
@@ -1034,7 +1114,8 @@ const Users = () => {
                       Delete
                     </button>
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
 
               {/* Add User Modal - Rendered via Portal to body */}
@@ -1217,6 +1298,54 @@ const Users = () => {
                             </select>
                             {formErrors.billingType && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.billingType}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {formData.userType === 'teacher' && !editingUserId && (
+                          <div>
+                            <label htmlFor="gender" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                              Gender <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              id="gender"
+                              name="gender"
+                              value={formData.gender}
+                              onChange={handleFormChange}
+                              className={`w-full px-3 sm:px-4 py-2 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                                formErrors.gender ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                            >
+                              <option value="">Select gender</option>
+                              <option value="male">Male</option>
+                              <option value="female">Female</option>
+                              <option value="other">Other</option>
+                            </select>
+                            {formErrors.gender && (
+                              <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.gender}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {formData.userType === 'teacher' && (
+                          <div>
+                            <label htmlFor="teacherEmploymentType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                              Teacher Type <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              id="teacherEmploymentType"
+                              name="teacherEmploymentType"
+                              value={formData.teacherEmploymentType}
+                              onChange={handleFormChange}
+                              className={`w-full px-3 sm:px-4 py-2 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                                formErrors.teacherEmploymentType ? 'border-red-500' : 'border-gray-300'
+                              }`}
+                            >
+                              <option value="part_time">Part-time</option>
+                              <option value="full_time">Full-time</option>
+                            </select>
+                            {formErrors.teacherEmploymentType && (
+                              <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.teacherEmploymentType}</p>
                             )}
                           </div>
                         )}

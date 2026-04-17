@@ -1,8 +1,6 @@
 import { query, getClient } from '../config/database.js';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import {
   ensureSubscriptionSchema,
   upsertPattySubscription,
@@ -16,9 +14,21 @@ import {
   defaults,
 } from '../services/billingSubscriptionService.js';
 import { isS3Configured, uploadReceiptFileToS3 } from '../services/s3Materials.js';
+import { createNotification } from '../services/notificationService.js';
+import { notifyInvoicePaid } from '../services/notificationDispatchService.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let paymentSchemaReadyPromise = null;
+const ensurePaymentSchema = async () => {
+  if (!paymentSchemaReadyPromise) {
+    paymentSchemaReadyPromise = (async () => {
+      await query(`ALTER TABLE paymenttbl ADD COLUMN IF NOT EXISTS attachment_url TEXT`);
+    })().catch((error) => {
+      paymentSchemaReadyPromise = null;
+      throw error;
+    });
+  }
+  return paymentSchemaReadyPromise;
+};
 
 /**
  * @desc    Get all available credit packages
@@ -162,8 +172,7 @@ export const getInvoices = async (req, res) => {
  */
 export const getPaymentLogs = async (req, res) => {
   try {
-    await ensureSubscriptionSchema();
-    await query(`ALTER TABLE paymenttbl ADD COLUMN IF NOT EXISTS attachment_url TEXT`);
+    await ensurePaymentSchema();
 
     const { paymentType, userId, reference } = req.query;
     let sqlQuery = `
@@ -270,103 +279,34 @@ export const downloadInvoicePdf = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${safeNumber}.pdf"`);
 
-    const doc = new PDFDocument({ size: 'A4', margin: 42 });
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
     doc.pipe(res);
 
+    doc.fontSize(24).text('Invoice', { align: 'left' });
+    doc.moveDown(0.5);
+    doc.fontSize(12).fillColor('#333333');
+    doc.text(`Invoice #: ${invoiceNumber}`);
+    doc.text(`Created: ${inv.created_at ? new Date(inv.created_at).toLocaleDateString() : 'N/A'}`);
+    doc.text(`Due Date: ${inv.due_date ? new Date(inv.due_date).toLocaleDateString() : 'N/A'}`);
+    doc.text(`Status: ${String(inv.status || '').toUpperCase()}`);
+    doc.moveDown();
+
+    doc.fontSize(14).fillColor('#111111').text('Billed To');
+    doc.fontSize(12).fillColor('#333333');
+    doc.text(inv.user_name || 'N/A');
+    doc.text(inv.email || 'N/A');
+    doc.moveDown();
+
+    doc.fontSize(14).fillColor('#111111').text('Details');
+    doc.fontSize(12).fillColor('#333333');
+    doc.text(`Billing Type: ${inv.billing_type || '-'}`);
+    doc.text(`Description: ${inv.description || '-'}`);
+    doc.moveDown();
+
     const amount = Number(inv.amount || 0);
-    const amountFormatted = `$${amount.toFixed(2)}`;
-    const issueDate = inv.created_at ? new Date(inv.created_at).toLocaleDateString('en-US') : 'N/A';
-    const dueDate = inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-US') : 'N/A';
-    const rawStatus = String(inv.status || '').toLowerCase();
-    const statusLabel = rawStatus ? `${rawStatus[0].toUpperCase()}${rawStatus.slice(1)}` : 'Unknown';
-    const billingTypeLabel = String(inv.billing_type || '-')
-      .replaceAll('_', ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-
-    const pageWidth = doc.page.width;
-    const left = doc.page.margins.left;
-    const right = pageWidth - doc.page.margins.right;
-    const contentWidth = right - left;
-
-    const logoPath = path.resolve(__dirname, '../../frontend/public/funtalk-logo.png');
-    if (fs.existsSync(logoPath)) {
-      try {
-        doc.image(logoPath, left, 36, { width: 58, height: 58 });
-      } catch {
-        // best effort only; continue without logo
-      }
-    }
-
-    doc.fillColor('#111827').fontSize(18).font('Helvetica-Bold')
-      .text('Funtalk Online Tutor', left + 70, 44, { width: 320 });
-    doc.fillColor('#6b7280').fontSize(10).font('Helvetica')
-      .text('Professional English tutoring platform', left + 70, 66, { width: 320 });
-
-    doc.fillColor('#111827').fontSize(24).font('Helvetica-Bold')
-      .text('INVOICE', right - 175, 44, { width: 175, align: 'right' });
-    doc.fillColor('#4b5563').fontSize(10).font('Helvetica')
-      .text(invoiceNumber, right - 175, 72, { width: 175, align: 'right' });
-
-    const statusColor =
-      rawStatus === 'paid' ? '#16a34a' :
-      rawStatus === 'pending' ? '#d97706' :
-      rawStatus === 'overdue' ? '#dc2626' :
-      '#6b7280';
-    doc.roundedRect(right - 100, 92, 100, 20, 6).fillOpacity(0.12).fill(statusColor).fillOpacity(1);
-    doc.fillColor(statusColor).fontSize(10).font('Helvetica-Bold')
-      .text(statusLabel.toUpperCase(), right - 100, 98, { width: 100, align: 'center' });
-
-    doc.strokeColor('#e5e7eb').lineWidth(1).moveTo(left, 126).lineTo(right, 126).stroke();
-
-    let y = 142;
-    const boxGap = 14;
-    const boxWidth = (contentWidth - boxGap) / 2;
-    const boxHeight = 110;
-
-    doc.roundedRect(left, y, boxWidth, boxHeight, 8).fillAndStroke('#f9fafb', '#e5e7eb');
-    doc.fillColor('#111827').fontSize(11).font('Helvetica-Bold').text('Billed To', left + 12, y + 12);
-    doc.fillColor('#374151').fontSize(10).font('Helvetica')
-      .text(inv.user_name || 'N/A', left + 12, y + 34, { width: boxWidth - 24 })
-      .text(inv.email || 'N/A', left + 12, y + 52, { width: boxWidth - 24 });
-
-    doc.roundedRect(left + boxWidth + boxGap, y, boxWidth, boxHeight, 8).fillAndStroke('#f9fafb', '#e5e7eb');
-    doc.fillColor('#111827').fontSize(11).font('Helvetica-Bold').text('Invoice Details', left + boxWidth + boxGap + 12, y + 12);
-    doc.fillColor('#374151').fontSize(10).font('Helvetica')
-      .text(`Issue Date: ${issueDate}`, left + boxWidth + boxGap + 12, y + 34, { width: boxWidth - 24 })
-      .text(`Due Date: ${dueDate}`, left + boxWidth + boxGap + 12, y + 52, { width: boxWidth - 24 })
-      .text(`Billing Type: ${billingTypeLabel}`, left + boxWidth + boxGap + 12, y + 70, { width: boxWidth - 24 });
-
-    y += boxHeight + 18;
-
-    doc.roundedRect(left, y, contentWidth, 84, 8).fillAndStroke('#ffffff', '#e5e7eb');
-    doc.fillColor('#111827').fontSize(11).font('Helvetica-Bold').text('Description', left + 12, y + 12);
-    doc.fillColor('#374151').fontSize(10).font('Helvetica')
-      .text(inv.description || 'Invoice payment for selected billing cycle/services.', left + 12, y + 30, {
-        width: contentWidth - 24,
-        height: 42,
-      });
-
-    y += 102;
-
-    doc.roundedRect(left, y, contentWidth, 100, 8).fillAndStroke('#f9fafb', '#e5e7eb');
-    doc.fillColor('#111827').fontSize(11).font('Helvetica-Bold').text('Payment Summary', left + 12, y + 12);
-    doc.fillColor('#374151').fontSize(10).font('Helvetica')
-      .text('Subtotal', left + 12, y + 40)
-      .text(amountFormatted, right - 120, y + 40, { width: 108, align: 'right' })
-      .text('Adjustments', left + 12, y + 58)
-      .text('$0.00', right - 120, y + 58, { width: 108, align: 'right' });
-
-    doc.strokeColor('#d1d5db').moveTo(left + 12, y + 75).lineTo(right - 12, y + 75).stroke();
-    doc.fillColor('#111827').fontSize(13).font('Helvetica-Bold')
-      .text('Total Amount Due', left + 12, y + 81)
-      .text(amountFormatted, right - 120, y + 81, { width: 108, align: 'right' });
-
-    doc.fillColor('#6b7280').fontSize(9).font('Helvetica')
-      .text('Generated by Funtalk Online Tutor', left, doc.page.height - 64, { width: contentWidth, align: 'center' })
-      .text('This is a system-generated invoice and does not require a signature.', left, doc.page.height - 50, {
-        width: contentWidth,
-        align: 'center',
-      });
+    doc.fontSize(16).fillColor('#111111').text(`Total: $${amount.toFixed(2)}`, { align: 'right' });
+    doc.moveDown(2);
+    doc.fontSize(10).fillColor('#666666').text('Generated by Funtalk', { align: 'center' });
 
     doc.end();
   } catch (error) {
@@ -569,8 +509,7 @@ export const approvePayment = async (req, res) => {
       });
     }
 
-    await ensureSubscriptionSchema();
-    await client.query(`ALTER TABLE paymenttbl ADD COLUMN IF NOT EXISTS attachment_url TEXT`);
+    await ensurePaymentSchema();
     await client.query('BEGIN');
     const invoiceLookup = await client.query(
       `SELECT i.invoice_id, i.user_id, i.status, i.subscription_id, i.description, i.billing_id, i.amount
@@ -626,6 +565,7 @@ export const approvePayment = async (req, res) => {
 
     // Invoice payment approval does not change credits.
     await client.query('COMMIT');
+    await notifyInvoicePaid({ userId: inv.user_id, invoiceId: Number(id) });
 
     res.status(200).json({
       success: true,
@@ -720,6 +660,24 @@ export const generateInvoice = async (req, res) => {
       'UPDATE invoicetbl SET invoice_number = $1 WHERE invoice_id = $2',
       [`INV-${invoiceId}`, invoiceId]
     );
+    await createNotification({
+      targetRole: 'superadmin',
+      title: 'Invoice generated',
+      message: `INV-${invoiceId} generated manually.`,
+      href: '/superadmin/invoices',
+      severity: 'info',
+      entityType: 'invoice',
+      entityId: invoiceId,
+    });
+    await createNotification({
+      userId: Number(billing.user_id),
+      title: 'New invoice generated',
+      message: `INV-${invoiceId} has been generated.`,
+      href: '/school/credits',
+      severity: 'info',
+      entityType: 'invoice',
+      entityId: invoiceId,
+    });
 
     res.status(201).json({
       success: true,
@@ -745,7 +703,8 @@ export const generateInvoice = async (req, res) => {
  */
 export const createPackage = async (req, res) => {
   try {
-    const { packageName, packageType, creditsValue, price, isActive } = req.body;
+    const { packageName, packageType, description, creditsValue, price, isActive } = req.body;
+    const packageDescription = (description ?? packageType) || null;
     
     const sqlQuery = `
       INSERT INTO packagetbl (
@@ -757,7 +716,7 @@ export const createPackage = async (req, res) => {
     
     const values = [
       packageName,
-      packageType || null,
+      packageDescription,
       creditsValue,
       price,
       isActive !== undefined ? isActive : true,
@@ -790,7 +749,7 @@ export const createPackage = async (req, res) => {
 export const updatePackage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { packageName, packageType, creditsValue, price, isActive } = req.body;
+    const { packageName, packageType, description, creditsValue, price, isActive } = req.body;
     
     // Check if package exists
     const packageCheck = await query(
@@ -816,9 +775,10 @@ export const updatePackage = async (req, res) => {
       paramIndex++;
     }
     
-    if (packageType !== undefined) {
+    const hasDescriptionField = Object.prototype.hasOwnProperty.call(req.body, 'description');
+    if (hasDescriptionField || packageType !== undefined) {
       updates.push(`package_type = $${paramIndex}`);
-      values.push(packageType || null);
+      values.push((description ?? packageType) || null);
       paramIndex++;
     }
     

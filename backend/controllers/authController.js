@@ -8,7 +8,11 @@ import {
   ensureSubscriptionSchema,
   upsertPattySubscription,
 } from '../services/billingSubscriptionService.js';
-import { isS3Configured, uploadReceiptFileToS3 } from '../services/s3Materials.js';
+import {
+  isS3Configured,
+  uploadReceiptFileToS3,
+  uploadTeacherProfileFileToS3,
+} from '../services/s3Materials.js';
 
 const normalizePaymentStatus = (value) => {
   const raw = String(value || '').toLowerCase();
@@ -26,6 +30,10 @@ const parseInitialPaymentAmount = (req) => {
   if (raw === undefined || raw === null || raw === '') return null;
   const n = parseFloat(String(raw));
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+};
+
+const normalizeTeacherEmploymentType = (value) => {
+  return String(value || '').toLowerCase() === 'full_time' ? 'full_time' : 'part_time';
 };
 
 const logInitialPaymentIfPaid = async ({
@@ -66,7 +74,18 @@ export const register = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const { name, email, password, phoneNumber, userType, billingType, paymentStatus, paymentType } = req.body;
+    const {
+      name,
+      email,
+      password,
+      phoneNumber,
+      gender,
+      userType,
+      billingType,
+      paymentStatus,
+      paymentType,
+      teacherEmploymentType,
+    } = req.body;
     let { billingConfig } = req.body;
     if (typeof billingConfig === 'string') {
       try {
@@ -231,10 +250,14 @@ export const register = async (req, res) => {
 
     // If user is a teacher, create teacher profile
     if (userType === 'teacher') {
+      const employmentType = normalizeTeacherEmploymentType(teacherEmploymentType);
+      const normalizedGender = ['male', 'female', 'other'].includes(String(gender || '').toLowerCase())
+        ? String(gender).toLowerCase()
+        : null;
       await client.query(
-        `INSERT INTO teachertbl (teacher_id, fullname, email, status)
-         VALUES ($1, $2, $3, $4)`,
-        [newUser.user_id, name, email, 'pending'] // Teachers start as pending
+        `INSERT INTO teachertbl (teacher_id, fullname, email, gender, status, employment_type)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [newUser.user_id, name, email, normalizedGender, 'active', employmentType] // Teachers start as active
       );
     }
 
@@ -416,8 +439,9 @@ export const login = async (req, res) => {
     }
 
     // Find user in database
+    await query('ALTER TABLE userstbl ADD COLUMN IF NOT EXISTS profile_picture TEXT');
     const userResult = await query(
-      `SELECT user_id, email, name, user_type, status, firebase_uid 
+      `SELECT user_id, email, name, user_type, status, firebase_uid, profile_picture
        FROM userstbl 
        WHERE email = $1 OR firebase_uid = $2`,
       [email.toLowerCase(), decodedToken.uid]
@@ -474,6 +498,7 @@ export const login = async (req, res) => {
           name: user.name,
           userType: user.user_type,
           status: user.status,
+          profile_picture: user.profile_picture || '',
         },
         token,
       },
@@ -495,8 +520,9 @@ export const login = async (req, res) => {
  */
 export const getCurrentUser = async (req, res) => {
   try {
+    await query('ALTER TABLE userstbl ADD COLUMN IF NOT EXISTS profile_picture TEXT');
     const userResult = await query(
-      `SELECT user_id, email, name, user_type, phone_number, status, created_at, last_login
+      `SELECT user_id, email, name, user_type, phone_number, status, created_at, last_login, profile_picture
        FROM userstbl 
        WHERE user_id = $1`,
       [req.user.userId]
@@ -520,6 +546,84 @@ export const getCurrentUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching user profile',
+    });
+  }
+};
+
+/**
+ * @route   PUT /api/auth/me/profile-picture
+ * @desc    Update current user's profile picture (all roles)
+ * @access  Private
+ */
+export const updateMyProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userType = String(req.user.userType || '').toLowerCase();
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Profile picture file is required.',
+      });
+    }
+
+    await query('ALTER TABLE userstbl ADD COLUMN IF NOT EXISTS profile_picture TEXT');
+
+    let profilePictureUrl = `/uploads/materials/${file.filename}`;
+    if (file.path && isS3Configured()) {
+      try {
+        profilePictureUrl = await uploadTeacherProfileFileToS3({
+          localPath: file.path,
+          assetType: 'profile_photo',
+          contentType: file.mimetype,
+        });
+      } finally {
+        try {
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        } catch {
+          // best-effort temp cleanup
+        }
+      }
+    }
+
+    await query(
+      `UPDATE userstbl
+       SET profile_picture = $1
+       WHERE user_id = $2`,
+      [profilePictureUrl, userId]
+    );
+
+    if (userType === 'teacher') {
+      await query(
+        `UPDATE teachertbl
+         SET profile_picture = $1
+         WHERE teacher_id = $2`,
+        [profilePictureUrl, userId]
+      );
+    }
+
+    const userResult = await query(
+      `SELECT user_id, email, name, user_type, phone_number, status, created_at, last_login, profile_picture
+       FROM userstbl
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile picture updated successfully.',
+      data: {
+        user: userResult.rows[0],
+      },
+    });
+  } catch (error) {
+    console.error('Update profile picture error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error updating profile picture.',
     });
   }
 };

@@ -17,7 +17,8 @@ const MATERIAL_PREFIX_BY_USER_TYPE = {
 };
 const RECEIPTS_PREFIX = 'receipts/';
 const TEACHER_PROFILE_PREFIX_BY_ASSET = {
-  profile_photo: 'teachers/profile-photos/',
+  // Matches requested bucket path: funtalk-storage/profile-photos/
+  profile_photo: 'profile-photos/',
   cv_file: 'teachers/cv-files/',
   intro_audio: 'teachers/audio-intros/',
   intro_video: 'teachers/video-intros/',

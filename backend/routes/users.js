@@ -48,6 +48,9 @@ router.put(
       .withMessage('Password must be at least 6 characters'),
     body('status').optional().isIn(['active', 'inactive', 'pending']),
     body('userType').optional().isIn(['superadmin', 'school', 'teacher']),
+    body('teacherEmploymentType')
+      .optional({ nullable: true, checkFalsy: true })
+      .isIn(['part_time', 'full_time']),
     body('billingType').optional().isString(),
     body('billingConfig').optional().isObject(),
     handleValidationErrors,

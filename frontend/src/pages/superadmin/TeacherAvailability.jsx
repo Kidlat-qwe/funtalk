@@ -54,6 +54,12 @@ const TeacherAvailability = () => {
   const [isFetchingTeachers, setIsFetchingTeachers] = useState(false);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityByTeacherId, setAvailabilityByTeacherId] = useState({});
+  const [scheduleTeacher, setScheduleTeacher] = useState(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [weeklySchedule, setWeeklySchedule] = useState([]);
+  const [scheduleSlotsForDate, setScheduleSlotsForDate] = useState([]);
+
+  const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -163,6 +169,40 @@ const TeacherAvailability = () => {
     return slots.length > 0;
   }).length;
 
+  const openScheduleModal = async (teacher) => {
+    setScheduleTeacher(teacher);
+    setScheduleLoading(true);
+    setWeeklySchedule([]);
+    setScheduleSlotsForDate([]);
+    try {
+      const token = localStorage.getItem('token');
+      const [weeklyRes, dateRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/availability/teacher/${teacher.teacher_id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        selectedDate
+          ? fetch(`${API_BASE_URL}/availability/teacher/${teacher.teacher_id}/available-slots?date=${selectedDate}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+          : Promise.resolve(null),
+      ]);
+      const weeklyData = await weeklyRes.json();
+      if (weeklyData.success && weeklyData.data?.availability) {
+        setWeeklySchedule(weeklyData.data.availability);
+      }
+      if (dateRes) {
+        const dateData = await dateRes.json();
+        if (dateData.success && dateData.data?.slots) {
+          setScheduleSlotsForDate(dateData.data.slots);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading teacher schedule:', error);
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -237,10 +277,10 @@ const TeacherAvailability = () => {
                   <table className="w-full divide-y divide-gray-200" style={{ minWidth: '760px' }}>
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available Slots</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Teacher</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Email</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Status</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Check Schedule</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -262,27 +302,22 @@ const TeacherAvailability = () => {
                               )}
                             </td>
                             <td className="px-4 sm:px-6 py-4">
-                              {!selectedDate ? (
-                                <span className="text-xs text-gray-500">Select a date to check slots</span>
-                              ) : slots.length === 0 ? (
-                                <span className="text-xs text-gray-500">No schedule for this date</span>
-                              ) : (
-                                <div className="space-y-2">
+                              <div className="space-y-2">
+                                {!selectedDate ? null : slots.length === 0 ? (
+                                  <div className="text-xs text-gray-500">No availability on selected date</div>
+                                ) : (
                                   <div className="text-xs text-gray-500">
-                                    {slots.length} slot{slots.length > 1 ? 's' : ''} across {slotRanges.length} schedule block{slotRanges.length > 1 ? 's' : ''}
+                                    {slots.length} slot{slots.length > 1 ? 's' : ''} ({slotRanges.length} block{slotRanges.length > 1 ? 's' : ''})
                                   </div>
-                                  <div className="space-y-1">
-                                    {slotRanges.map((range, idx) => (
-                                      <div
-                                        key={`${teacher.teacher_id}-${range.start}-${idx}`}
-                                        className="px-2.5 py-1.5 text-xs sm:text-sm rounded-md bg-primary-50 text-primary-800 border border-primary-100 w-fit"
-                                      >
-                                        {toDisplayTime(range.start)} - {toDisplayTime(range.end)}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => openScheduleModal(teacher)}
+                                  className="px-3 py-1.5 text-xs sm:text-sm rounded-md bg-primary-600 text-white hover:bg-primary-700"
+                                >
+                                  View Schedule
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -295,6 +330,75 @@ const TeacherAvailability = () => {
           </div>
         </main>
       </div>
+
+      {scheduleTeacher && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[10000]"
+          onClick={() => setScheduleTeacher(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-2xl border border-[#e8ddd8] max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Teacher Schedule</h3>
+                <p className="text-sm text-gray-600">{scheduleTeacher.fullname || 'Teacher'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScheduleTeacher(null)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {scheduleLoading ? (
+                <div className="text-sm text-gray-600">Loading schedule...</div>
+              ) : (
+                <>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">Weekly Availability</h4>
+                    {weeklySchedule.length === 0 ? (
+                      <p className="text-sm text-gray-500">No weekly schedule set.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {weeklySchedule.map((row) => (
+                          <div key={row.availability_id} className="text-sm text-gray-700 flex items-center justify-between bg-gray-50 border rounded px-3 py-2">
+                            <span>{DAY_LABELS[Number(row.day_of_week)] || `Day ${row.day_of_week}`}</span>
+                            <span className="font-medium">
+                              {String(row.start_time || '').slice(0, 5)} - {String(row.end_time || '').slice(0, 5)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {selectedDate && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-800 mb-2">Availability on {selectedDate}</h4>
+                      {scheduleSlotsForDate.length === 0 ? (
+                        <p className="text-sm text-gray-500">No available slots on this date.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {buildSlotRanges(scheduleSlotsForDate).map((range, idx) => (
+                            <div key={`${range.start}-${idx}`} className="px-2.5 py-1.5 text-xs sm:text-sm rounded-md bg-primary-50 text-primary-800 border border-primary-100 w-fit">
+                              {toDisplayTime(range.start)} - {toDisplayTime(range.end)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}

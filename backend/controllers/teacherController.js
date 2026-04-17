@@ -43,6 +43,7 @@ export const getTeachers = async (req, res) => {
         t.video_intro,
         t.docs,
         t.status,
+        t.employment_type,
         t.created_at,
         u.name as user_name,
         u.phone_number,
@@ -212,7 +213,7 @@ export const createTeacher = async (req, res) => {
       audioIntro || null,
       videoIntro || null,
       docs || null,
-      'pending', // Default status
+      'active', // Default status
     ];
     
     const result = await db.query(query, values);
@@ -497,6 +498,7 @@ export const getMyTeacherProfile = async (req, res) => {
          audio_intro,
          video_intro,
          status,
+         employment_type,
          created_at
        FROM teachertbl
        WHERE teacher_id = $1`,

@@ -18,12 +18,15 @@ export const getUsers = async (req, res) => {
         u.email,
         u.name,
         u.user_type,
+        u.profile_picture,
         u.phone_number,
         u.status,
         u.created_at,
         u.last_login,
-        COALESCE(u.billing_type, '-') as billing_type
+        COALESCE(u.billing_type, '-') as billing_type,
+        t.employment_type AS teacher_employment_type
       FROM userstbl u
+      LEFT JOIN teachertbl t ON t.teacher_id = u.user_id
       WHERE 1=1
     `;
 
@@ -77,8 +80,21 @@ export const getUserById = async (req, res) => {
     }
 
     const result = await query(
-      `SELECT user_id, email, name, user_type, phone_number, status, billing_type, created_at, last_login
-       FROM userstbl WHERE user_id = $1`,
+      `SELECT
+         u.user_id,
+         u.email,
+         u.name,
+         u.user_type,
+         u.profile_picture,
+         u.phone_number,
+         u.status,
+         u.billing_type,
+         u.created_at,
+         u.last_login,
+         t.employment_type AS teacher_employment_type
+       FROM userstbl u
+       LEFT JOIN teachertbl t ON t.teacher_id = u.user_id
+       WHERE u.user_id = $1`,
       [userId]
     );
     if (result.rows.length === 0) {
@@ -154,13 +170,25 @@ export const updateUser = async (req, res) => {
       status,
       userType,
       billingType,
+      teacherEmploymentType,
       billingConfig,
       password,
     } = req.body;
 
     await client.query('BEGIN');
     const existing = await client.query(
-      'SELECT user_id, email, name, firebase_uid, user_type, billing_type FROM userstbl WHERE user_id = $1 FOR UPDATE',
+      `SELECT
+         user_id,
+         email,
+         name,
+         phone_number,
+         status,
+         firebase_uid,
+         user_type,
+         billing_type
+       FROM userstbl
+       WHERE user_id = $1
+       FOR UPDATE`,
       [userId]
     );
     if (existing.rows.length === 0) {
@@ -188,6 +216,12 @@ export const updateUser = async (req, res) => {
       if (email !== undefined) nextEmail = String(email).trim().toLowerCase();
       if (phoneNumber !== undefined) nextPhone = phoneNumber ? String(phoneNumber).trim() : null;
     }
+    const normalizedTeacherEmploymentType =
+      teacherEmploymentType == null
+        ? null
+        : String(teacherEmploymentType || '').toLowerCase() === 'full_time'
+        ? 'full_time'
+        : 'part_time';
 
     if (nextEmail !== prev.email) {
       const dup = await client.query('SELECT user_id FROM userstbl WHERE email = $1 AND user_id <> $2', [
@@ -211,6 +245,15 @@ export const updateUser = async (req, res) => {
        WHERE user_id = $7`,
       [nextName, nextEmail, nextPhone, nextStatus, nextUserType, nextBillingType, userId]
     );
+
+    if (isAdmin && nextUserType === 'teacher' && normalizedTeacherEmploymentType) {
+      await client.query(
+        `UPDATE teachertbl
+         SET employment_type = $1
+         WHERE teacher_id = $2`,
+        [normalizedTeacherEmploymentType, userId]
+      );
+    }
 
     await client.query('COMMIT');
 
