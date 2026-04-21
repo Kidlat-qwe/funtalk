@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import ResponsiveSelect from '../../components/ResponsiveSelect';
+import Pagination from '../../components/Pagination.jsx';
 
 const PaymentLogs = () => {
   const navigate = useNavigate();
@@ -14,6 +16,7 @@ const PaymentLogs = () => {
   const [referenceSearch, setReferenceSearch] = useState('');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('');
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -78,6 +81,13 @@ const PaymentLogs = () => {
       String(p.email || '').toLowerCase().includes(q)
     );
   }, [payments, referenceSearch]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [referenceSearch, paymentTypeFilter]);
+
+  const pageSize = 10;
+  const pagedPayments = filteredPayments.slice((page - 1) * pageSize, page * pageSize);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -179,10 +189,11 @@ const PaymentLogs = () => {
                 onChange={(e) => setReferenceSearch(e.target.value)}
                 className="w-full sm:w-72 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
-              <select
+              <ResponsiveSelect
                 value={paymentTypeFilter}
                 onChange={(e) => setPaymentTypeFilter(e.target.value)}
                 className="w-full sm:w-56 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                aria-label="Payment type filter"
               >
                 <option value="">All payment types</option>
                 <option value="bank_transfer">Bank Transfer</option>
@@ -190,7 +201,7 @@ const PaymentLogs = () => {
                 <option value="e_wallet">E-wallets</option>
                 <option value="cash">Cash</option>
                 <option value="other">Other</option>
-              </select>
+              </ResponsiveSelect>
               <button
                 type="button"
                 onClick={exportToExcel}
@@ -207,6 +218,7 @@ const PaymentLogs = () => {
               ) : filteredPayments.length === 0 ? (
                 <div className="p-10 text-center text-gray-600 text-sm">No payment logs found.</div>
               ) : (
+                <>
                 <div className="overflow-x-auto">
                   <table className="w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -221,7 +233,7 @@ const PaymentLogs = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredPayments.map((p) => (
+                      {pagedPayments.map((p) => (
                         <tr key={p.payment_id} className="hover:bg-gray-50">
                           <td className="px-4 py-4 text-sm text-gray-900">PAY-{p.payment_id}</td>
                           <td className="px-4 py-4">
@@ -250,6 +262,10 @@ const PaymentLogs = () => {
                     </tbody>
                   </table>
                 </div>
+                <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                  <Pagination totalItems={filteredPayments.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                </div>
+                </>
               )}
             </div>
           </div>

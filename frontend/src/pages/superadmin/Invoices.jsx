@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import ResponsiveSelect from '../../components/ResponsiveSelect';
+import Pagination from '../../components/Pagination.jsx';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 
 const Invoices = () => {
   const navigate = useNavigate();
@@ -26,6 +29,7 @@ const Invoices = () => {
   });
   const [statusFilter, setStatusFilter] = useState('');
   const [invoiceNumberSearch, setInvoiceNumberSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -179,6 +183,13 @@ const Invoices = () => {
       invoice.user_name?.toLowerCase().includes(invoiceNumberSearch.toLowerCase());
     return matchesSearch;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, invoiceNumberSearch]);
+
+  const pageSize = 10;
+  const pagedInvoices = filteredInvoices.slice((page - 1) * pageSize, page * pageSize);
 
   // Format date
   const formatDate = (dateString) => {
@@ -355,7 +366,7 @@ const Invoices = () => {
                   />
                 </div>
                 <div className="w-full sm:w-auto sm:min-w-[10rem]">
-                  <select
+                  <ResponsiveSelect
                     id="invoices-status-filter"
                     aria-label="Filter invoices by status"
                     value={statusFilter}
@@ -367,7 +378,7 @@ const Invoices = () => {
                     <option value="pending">Pending</option>
                     <option value="overdue">Overdue</option>
                     <option value="cancelled">Cancelled</option>
-                  </select>
+                  </ResponsiveSelect>
                 </div>
               </div>
 
@@ -401,28 +412,29 @@ const Invoices = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="w-full">
-                    <table className="w-full table-fixed divide-y divide-gray-200">
+                  <>
+                  <div className="overflow-x-auto rounded-b-xl">
+                    <table className="min-w-[1240px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Invoice number
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Customer</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">Package</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Package</th>
                           <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Amount</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Status
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Due Date</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">Receipt</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Created</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">Actions</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Due Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Receipt</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Created</th>
+                          <th className="sticky right-0 z-10 bg-gray-50 px-4 py-3 text-right text-xs font-medium text-gray-500 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredInvoices.map((invoice) => (
-                          <tr key={invoice.invoice_id} className="hover:bg-gray-50">
+                        {pagedInvoices.map((invoice) => (
+                          <tr key={invoice.invoice_id} className="group hover:bg-gray-50">
                             <td className="px-4 py-4 align-top">
                               <div className="text-sm font-medium text-gray-900 break-all">
                                 {invoice.invoice_number || `INV-${invoice.invoice_id}`}
@@ -432,7 +444,7 @@ const Invoices = () => {
                               <div className="text-sm font-medium text-gray-900 truncate">{invoice.user_name || 'N/A'}</div>
                               <div className="text-xs text-gray-500 break-all">{invoice.email || ''}</div>
                             </td>
-                            <td className="px-4 py-4 align-top hidden xl:table-cell">
+                            <td className="px-4 py-4 align-top">
                               <div className="text-sm text-gray-900">{invoice.package_name || '-'}</div>
                               {invoice.billing_type && (
                                 <div className="text-xs text-gray-500">{invoice.billing_type}</div>
@@ -441,15 +453,15 @@ const Invoices = () => {
                             <td className="px-4 py-4 align-top text-right">
                               <div className="text-sm font-bold text-gray-900">{formatCurrency(invoice.amount)}</div>
                             </td>
-                            <td className="px-4 py-4 align-top hidden md:table-cell">
+                            <td className="px-4 py-4 align-top">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(invoice.status)}`}>
                                 {formatStatus(invoice.status)}
                               </span>
                             </td>
-                            <td className="px-4 py-4 align-top hidden lg:table-cell">
+                            <td className="px-4 py-4 align-top">
                               <div className="text-sm text-gray-500">{formatDate(invoice.due_date)}</div>
                             </td>
-                            <td className="px-4 py-4 align-top hidden xl:table-cell">
+                            <td className="px-4 py-4 align-top">
                               {invoice.receipt_url ? (
                                 <button
                                   type="button"
@@ -462,20 +474,24 @@ const Invoices = () => {
                                 <span className="text-sm text-gray-400">-</span>
                               )}
                             </td>
-                            <td className="px-4 py-4 align-top hidden lg:table-cell">
+                            <td className="px-4 py-4 align-top">
                               <div className="text-sm text-gray-500">{formatDate(invoice.created_at)}</div>
                             </td>
-                            <td className="px-4 py-4 align-top text-right hidden md:table-cell">
+                            <td className="sticky right-0 z-[1] bg-white px-4 py-4 align-top text-right shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="relative inline-flex action-menu">
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const rect = e.currentTarget.getBoundingClientRect();
-                                    setMenuPosition({
-                                      top: rect.bottom + window.scrollY + 4,
-                                      right: window.innerWidth - rect.right + window.scrollX,
-                                    });
+                                    setMenuPosition(
+                                      computeFixedActionMenuPosition({
+                                        rect,
+                                        menuWidth: 176, // w-44
+                                        menuHeight: 170,
+                                        gap: 6,
+                                      })
+                                    );
                                     setOpenActionMenuId(openActionMenuId === invoice.invoice_id ? null : invoice.invoice_id);
                                   }}
                                   className="text-gray-600 hover:text-gray-900 focus:outline-none p-1"
@@ -497,6 +513,10 @@ const Invoices = () => {
                       </tbody>
                     </table>
                   </div>
+                  <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                    <Pagination totalItems={filteredInvoices.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                  </div>
+                  </>
                 )}
               </div>
 
@@ -591,17 +611,18 @@ const Invoices = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Payment Type</label>
-                          <select
+                          <ResponsiveSelect
                             value={payForm.paymentType}
                             onChange={(e) => setPayForm((prev) => ({ ...prev, paymentType: e.target.value }))}
                             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            aria-label="Payment Type"
                           >
                             <option value="bank_transfer">Bank Transfer</option>
                             <option value="card">Card</option>
                             <option value="e_wallet">E-wallets</option>
                             <option value="cash">Cash</option>
                             <option value="other">Other</option>
-                          </select>
+                          </ResponsiveSelect>
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">

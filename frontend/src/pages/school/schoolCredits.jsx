@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
+import ResponsiveSelect from '../../components/ResponsiveSelect.jsx';
+import Pagination from '../../components/Pagination.jsx';
 import { API_BASE_URL } from '@/config/api.js';
 
 const SchoolCredits = () => {
@@ -16,6 +18,7 @@ const SchoolCredits = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [transactionTypeFilter, setTransactionTypeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -156,6 +159,13 @@ const SchoolCredits = () => {
     };
     return types[type] || type;
   };
+
+  useEffect(() => {
+    setPage(1);
+  }, [transactionTypeFilter, dateFilter]);
+
+  const pageSize = 10;
+  const pagedTransactions = transactions.slice((page - 1) * pageSize, page * pageSize);
 
   if (isLoading) {
     return (
@@ -315,16 +325,18 @@ const SchoolCredits = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                     <div>
                       <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
-                      <select
+                      <ResponsiveSelect
+                        id="school-credits-transaction-type"
+                        aria-label="Filter by transaction type"
                         value={transactionTypeFilter}
                         onChange={(e) => setTransactionTypeFilter(e.target.value)}
-                        className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
                       >
                         <option value="">All Types</option>
                         <option value="purchase">Purchase</option>
                         <option value="deduction">Deduction</option>
                         <option value="adjustment">Adjustment</option>
-                      </select>
+                      </ResponsiveSelect>
                     </div>
                     <div>
                       <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Date</label>
@@ -348,6 +360,7 @@ const SchoolCredits = () => {
                       <p className="text-sm text-gray-500">No transactions found</p>
                     </div>
                   ) : (
+                    <>
                     <div className="overflow-x-auto">
                       <table className="w-full divide-y divide-gray-200" style={{ minWidth: '800px' }}>
                         <thead className="bg-gray-50">
@@ -361,7 +374,7 @@ const SchoolCredits = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {transactions.map((transaction) => (
+                          {pagedTransactions.map((transaction) => (
                             <tr key={transaction.transaction_id} className="hover:bg-gray-50">
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {formatDate(transaction.created_at)}
@@ -396,6 +409,10 @@ const SchoolCredits = () => {
                         </tbody>
                       </table>
                     </div>
+                    <div className="mt-3">
+                      <Pagination totalItems={transactions.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                    </div>
+                    </>
                   )}
                 </div>
               </div>

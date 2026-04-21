@@ -251,15 +251,15 @@ const TeacherProfile = () => {
         <Sidebar userType={user.userType} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         <main className="flex-1 lg:ml-64 p-3 sm:p-4 md:p-6 lg:p-8">
           <form className="max-w-5xl mx-auto space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
-            <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible sm:overflow-hidden">
               <div
-                className="h-15 sm:h-20 w-full"
+                className="h-16 sm:h-20 w-full"
                 style={{ backgroundColor: PROFILE_BANNER }}
                 aria-hidden
               />
               <div className="h-[3px] w-full bg-[#DFC1CB]" aria-hidden />
               <div className="px-4 sm:px-8 pb-6 sm:pb-8">
-                <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 -mt-9 sm:-mt-11">
+                <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 -mt-6 sm:-mt-11">
                   <div className="flex-shrink-0 flex flex-col items-center sm:items-start sm:translate-y-[2px]">
                     <div className={`relative ${hasPendingProfilePhoto ? 'rounded-full ring-2 ring-red-400 ring-offset-2 ring-offset-white' : ''}`}>
                       {profile?.profile_picture ? (

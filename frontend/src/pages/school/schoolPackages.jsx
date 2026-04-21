@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
+import ResponsiveSelect from '../../components/ResponsiveSelect.jsx';
 import { API_BASE_URL } from '@/config/api.js';
 
 const SchoolPackages = () => {
@@ -303,14 +304,16 @@ const SchoolPackages = () => {
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Billing Type
                   </label>
-                  <select
+                  <ResponsiveSelect
+                    id="school-packages-billing-type"
+                    aria-label="Billing type"
                     value={billingType}
                     onChange={(e) => setBillingType(e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
                   >
                     <option value="invoice">Invoice (Admin Approval)</option>
                     <option value="bank_transfer">Bank Transfer (Admin Approval)</option>
-                  </select>
+                  </ResponsiveSelect>
                   <p className="mt-1 text-xs text-gray-500">
                     An invoice will be generated for admin approval. Credits will be added once payment is approved.
                   </p>

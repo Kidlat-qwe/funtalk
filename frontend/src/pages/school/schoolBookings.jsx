@@ -3,8 +3,11 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
+import ResponsiveSelect from '../../components/ResponsiveSelect.jsx';
 import { BOOKING_TIME_OPTIONS } from '../../constants/bookingTimeOptions.js';
 import { API_BASE_URL } from '@/config/api.js';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
+import Pagination from '../../components/Pagination.jsx';
 
 const DURATION_OPTIONS = [
   { value: '25', label: '25 mins (1 credit)', credits: 1 },
@@ -214,6 +217,7 @@ const SchoolBookings = () => {
   const [teacherFilter, setTeacherFilter] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const [formData, setFormData] = useState({
     studentId: '',
     studentLevel: '',
@@ -231,6 +235,7 @@ const SchoolBookings = () => {
   const [creditBalance, setCreditBalance] = useState(0);
   const [billingStatus, setBillingStatus] = useState(null);
   const [requirementsViewAppointment, setRequirementsViewAppointment] = useState(null);
+  const [detailsViewAppointment, setDetailsViewAppointment] = useState(null);
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [actionMenuPosition, setActionMenuPosition] = useState({ top: 0, right: 0 });
 
@@ -599,6 +604,13 @@ const SchoolBookings = () => {
     return matchesStatus && matchesTeacher && matchesStudent;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, teacherFilter, studentSearch]);
+
+  const pageSize = 10;
+  const pagedAppointments = filteredAppointments.slice((page - 1) * pageSize, page * pageSize);
+
   const actionMenuAppointment =
     openActionMenuId != null
       ? filteredAppointments.find((a) => a.appointment_id === openActionMenuId) ?? null
@@ -683,10 +695,14 @@ const SchoolBookings = () => {
     e.stopPropagation();
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
-    setActionMenuPosition({
-      top: rect.bottom + window.scrollY + 4,
-      right: window.innerWidth - rect.right + window.scrollX,
-    });
+    setActionMenuPosition(
+      computeFixedActionMenuPosition({
+        rect,
+        menuWidth: 224, // w-52 / w-56
+        menuHeight: 220,
+        gap: 6,
+      })
+    );
     setOpenActionMenuId(openActionMenuId === appointmentId ? null : appointmentId);
   };
 
@@ -768,10 +784,12 @@ const SchoolBookings = () => {
                       />
                     </div>
                     <div>
-                      <select
+                      <ResponsiveSelect
+                        id="school-bookings-status-filter"
+                        aria-label="Filter by status"
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
                       >
                         <option value="">All Status</option>
                         <option value="pending">Pending</option>
@@ -779,13 +797,15 @@ const SchoolBookings = () => {
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                         <option value="no_show">No Show</option>
-                      </select>
+                      </ResponsiveSelect>
                     </div>
                     <div>
-                      <select
+                      <ResponsiveSelect
+                        id="school-bookings-teacher-filter"
+                        aria-label="Filter by teacher"
                         value={teacherFilter}
                         onChange={(e) => setTeacherFilter(e.target.value)}
-                        className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
                       >
                         <option value="">All Teachers</option>
                         {teachers.map((teacher) => (
@@ -793,11 +813,11 @@ const SchoolBookings = () => {
                             {teacher.fullname}
                           </option>
                         ))}
-                      </select>
+                      </ResponsiveSelect>
                     </div>
                   </div>
                 </div>
-                <div className="overflow-x-auto overflow-hidden">
+                <div className={filteredAppointments.length > 0 && !isFetching ? 'overflow-x-auto rounded-b-xl' : ''}>
                   {isFetching ? (
                     <div className="p-8 text-center">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto"></div>
@@ -808,7 +828,8 @@ const SchoolBookings = () => {
                       <p className="text-sm text-gray-500">No bookings found</p>
                     </div>
                   ) : (
-                    <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1024px' }}>
+                    <>
+                    <table className="min-w-[1120px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Date & Time</th>
@@ -816,12 +837,14 @@ const SchoolBookings = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Teacher</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Material</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Actions</th>
+                          <th className="sticky right-0 z-10 bg-gray-50 px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredAppointments.map((apt) => (
-                          <tr key={apt.appointment_id} className="hover:bg-gray-50">
+                        {pagedAppointments.map((apt) => (
+                          <tr key={apt.appointment_id} className="group hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {formatDateTime(apt.appointment_date, apt.appointment_time)}
                             </td>
@@ -831,7 +854,7 @@ const SchoolBookings = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {apt.teacher_name || (apt.status === 'pending' ? 'To be assigned' : 'N/A')}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 text-sm text-gray-500 max-w-[14rem] break-words sm:max-w-none sm:whitespace-nowrap">
                               {apt.material_name || '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -839,7 +862,7 @@ const SchoolBookings = () => {
                                 {formatStatus(apt.status)}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                            <td className="sticky right-0 z-[1] bg-white px-6 py-4 whitespace-nowrap text-right text-sm shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="flex justify-end">
                                 <button
                                   type="button"
@@ -871,6 +894,10 @@ const SchoolBookings = () => {
                         ))}
                       </tbody>
                     </table>
+                    <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                      <Pagination totalItems={filteredAppointments.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                    </div>
+                    </>
                   )}
                 </div>
 
@@ -884,6 +911,18 @@ const SchoolBookings = () => {
                     role="menu"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailsViewAppointment(actionMenuAppointment);
+                        setOpenActionMenuId(null);
+                      }}
+                      className="block w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-800 hover:bg-gray-100"
+                    >
+                      View details
+                    </button>
                     {canViewTeacherRequirements(actionMenuAppointment) && (
                       <button
                         type="button"
@@ -893,7 +932,7 @@ const SchoolBookings = () => {
                           setRequirementsViewAppointment(actionMenuAppointment);
                           setOpenActionMenuId(null);
                         }}
-                        className="block w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-100"
+                        className="block w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-100 border-t border-gray-100"
                       >
                         Teacher requirements
                       </button>
@@ -914,24 +953,13 @@ const SchoolBookings = () => {
                     )}
                     {actionMenuAppointment.status === 'approved' && !actionMenuAppointment.meeting_link && (
                       <div
-                        className={`px-3 sm:px-4 py-2 text-xs sm:text-sm text-amber-800 ${
-                          canViewTeacherRequirements(actionMenuAppointment) || canJoinClass(actionMenuAppointment)
-                            ? 'border-t border-gray-100'
-                            : ''
-                        }`}
+                        className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-amber-800 border-t border-gray-100"
                         title="Superadmin has not set a meeting link yet"
                         role="presentation"
                       >
                         Awaiting meeting link
                       </div>
                     )}
-                    {!canViewTeacherRequirements(actionMenuAppointment) &&
-                      !canJoinClass(actionMenuAppointment) &&
-                      !(actionMenuAppointment.status === 'approved' && !actionMenuAppointment.meeting_link) && (
-                        <div className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-500" role="presentation">
-                          No actions for this booking
-                        </div>
-                      )}
                   </div>,
                   document.body
                 )}
@@ -1012,6 +1040,151 @@ const SchoolBookings = () => {
                 <button
                   type="button"
                   onClick={() => setRequirementsViewAppointment(null)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Booking details */}
+      {detailsViewAppointment &&
+        createPortal(
+          <div
+            className="fixed bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 99999,
+              width: '100vw',
+              height: '100vh',
+              margin: 0,
+              padding: '1rem',
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setDetailsViewAppointment(null);
+            }}
+            role="presentation"
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 sm:mx-0 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="school-booking-details-title"
+            >
+              <div className="p-4 sm:p-6 border-b border-gray-200 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 id="school-booking-details-title" className="text-lg sm:text-xl font-bold text-gray-900">
+                    Booking details
+                  </h2>
+                  <p className="mt-1 text-xs sm:text-sm text-gray-600 break-words">
+                    {detailsViewAppointment.student_name || 'Student'} ·{' '}
+                    {formatDateTime(detailsViewAppointment.appointment_date, detailsViewAppointment.appointment_time)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailsViewAppointment(null)}
+                  className="text-gray-400 hover:text-gray-600 p-1 shrink-0"
+                  aria-label="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-xs font-medium text-gray-500">Student</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{detailsViewAppointment.student_name || '—'}</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-xs font-medium text-gray-500">Teacher</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {detailsViewAppointment.teacher_name || (detailsViewAppointment.status === 'pending' ? 'To be assigned' : '—')}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-xs font-medium text-gray-500">Date & time</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {formatDateTime(detailsViewAppointment.appointment_date, detailsViewAppointment.appointment_time)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-xs font-medium text-gray-500">Status</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{formatStatus(detailsViewAppointment.status)}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-medium text-gray-500">Class info</p>
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500">Class type</p>
+                      <p className="text-sm text-gray-900">{detailsViewAppointment.class_type || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Material</p>
+                      <p className="text-sm text-gray-900">{detailsViewAppointment.material_name || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Duration</p>
+                      <p className="text-sm text-gray-900">
+                        {detailsViewAppointment.duration
+                          ? `${detailsViewAppointment.duration} mins`
+                          : detailsViewAppointment.duration_minutes
+                            ? `${detailsViewAppointment.duration_minutes} mins`
+                            : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Created</p>
+                      <p className="text-sm text-gray-900">{formatDateTime(detailsViewAppointment.created_at, null)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-medium text-gray-500">Teacher requirements</p>
+                  {parseTeacherRequirementsFromNotes(detailsViewAppointment.additional_notes).length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {parseTeacherRequirementsFromNotes(detailsViewAppointment.additional_notes).map((req) => (
+                        <span
+                          key={req}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-100"
+                        >
+                          {teacherRequirementLabel(req)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-gray-500">—</p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-gray-200 p-3">
+                  <p className="text-xs font-medium text-gray-500">Notes</p>
+                  <p className="mt-2 text-sm text-gray-800 whitespace-pre-wrap">
+                    {detailsViewAppointment.additional_notes && String(detailsViewAppointment.additional_notes).trim()
+                      ? String(detailsViewAppointment.additional_notes).trim()
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-4 sm:px-6 pb-4 sm:pb-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDetailsViewAppointment(null)}
                   className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
                 >
                   Close

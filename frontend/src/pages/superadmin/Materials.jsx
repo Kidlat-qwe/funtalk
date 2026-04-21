@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import ResponsiveSelect from '../../components/ResponsiveSelect';
+import Pagination from '../../components/Pagination.jsx';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 
 const MATERIAL_TYPE_OPTIONS = [
   'Lesson Plan',
@@ -42,6 +45,7 @@ const Materials = () => {
   const [editingMaterial, setEditingMaterial] = useState(null);
   const [nameSearch, setNameSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [filePreview, setFilePreview] = useState({ isOpen: false, url: '', type: '' });
@@ -299,10 +303,14 @@ const Materials = () => {
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
     
-    setMenuPosition({
-      top: rect.bottom + window.scrollY + 1,
-      right: window.innerWidth - rect.right + window.scrollX,
-    });
+    setMenuPosition(
+      computeFixedActionMenuPosition({
+        rect,
+        menuWidth: 192, // w-40 / w-48
+        menuHeight: 170,
+        gap: 6,
+      })
+    );
     
     setOpenMenuId(openMenuId === materialId ? null : materialId);
   };
@@ -351,6 +359,13 @@ const Materials = () => {
       m.material_name?.toLowerCase().includes(nameSearch.toLowerCase());
     return matchesName;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [nameSearch, typeFilter]);
+
+  const pageSize = 10;
+  const pagedMaterials = filteredMaterials.slice((page - 1) * pageSize, page * pageSize);
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -419,7 +434,7 @@ const Materials = () => {
                   />
                 </div>
                 <div className="w-full sm:w-auto sm:min-w-[10rem]">
-                  <select
+                  <ResponsiveSelect
                     id="materials-type-filter"
                     aria-label="Filter materials by type"
                     value={typeFilter}
@@ -432,7 +447,7 @@ const Materials = () => {
                         {type}
                       </option>
                     ))}
-                  </select>
+                  </ResponsiveSelect>
                 </div>
               </div>
 
@@ -466,34 +481,35 @@ const Materials = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto overflow-hidden">
-                    <table className="w-full divide-y divide-gray-200" style={{ minWidth: '900px' }}>
+                  <>
+                  <div className="overflow-x-auto rounded-b-xl">
+                    <table className="min-w-[1040px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Material name
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Type
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             File URL
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Created At
                           </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">
+                          <th className="sticky right-0 z-10 bg-gray-50 px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">
                             Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredMaterials.map((material) => (
-                          <tr key={material.material_id} className="hover:bg-gray-50">
+                        {pagedMaterials.map((material) => (
+                          <tr key={material.material_id} className="group hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">{material.material_name || 'N/A'}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-6 py-4 whitespace-nowrap">
                               {material.material_type ? (
                                 <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                   {material.material_type}
@@ -502,12 +518,12 @@ const Materials = () => {
                                 <span className="text-sm text-gray-500">-</span>
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden xl:table-cell">
+                            <td className="px-6 py-4 whitespace-nowrap">
                               {material.file_url ? (
                                 <button
                                   type="button"
                                   onClick={() => openFilePreview(material.file_url)}
-                                  className="text-sm text-primary-600 hover:text-primary-800 hover:underline truncate max-w-xs inline-block text-left"
+                                  className="text-sm text-primary-600 hover:text-primary-800 hover:underline truncate max-w-[14rem] sm:max-w-xs inline-block text-left"
                                   title={material.file_url}
                                 >
                                   <div className="flex items-center gap-1">
@@ -521,10 +537,10 @@ const Materials = () => {
                                 <span className="text-sm text-gray-500">-</span>
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                            <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-500">{formatDate(material.created_at)}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td className="sticky right-0 z-[1] bg-white px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="flex justify-end">
                                 <button
                                   onClick={(e) => handleActionClick(e, material.material_id)}
@@ -552,6 +568,10 @@ const Materials = () => {
                       </tbody>
                     </table>
                   </div>
+                  <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                    <Pagination totalItems={filteredMaterials.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                  </div>
+                  </>
                 )}
               </div>
 
@@ -753,7 +773,7 @@ const Materials = () => {
                           <label htmlFor="materialType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                             Material Type <span className="text-red-500">*</span>
                           </label>
-                          <select
+                          <ResponsiveSelect
                             id="materialType"
                             name="materialType"
                             value={formData.materialType}
@@ -774,7 +794,7 @@ const Materials = () => {
                                   {formData.materialType}
                                 </option>
                               )}
-                          </select>
+                          </ResponsiveSelect>
                           {formErrors.materialType && (
                             <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.materialType}</p>
                           )}

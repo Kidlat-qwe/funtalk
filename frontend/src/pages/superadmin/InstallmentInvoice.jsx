@@ -68,6 +68,8 @@ function buildGenerateFormDefaults(row) {
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
+import Pagination from '../../components/Pagination.jsx';
 
 /**
  * Progress uses patty-linked invoices (subscription or billing_type=patty). Falls back to latest invoice row.
@@ -154,6 +156,8 @@ const InstallmentInvoice = () => {
   const [search, setSearch] = useState('');
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
+  const [viewModalRow, setViewModalRow] = useState(null);
+  const [page, setPage] = useState(1);
   const [generateModalRow, setGenerateModalRow] = useState(null);
   const [generateForm, setGenerateForm] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -227,6 +231,11 @@ const InstallmentInvoice = () => {
   const openGenerateModal = (row) => {
     setGenerateForm(buildGenerateFormDefaults(row));
     setGenerateModalRow(row);
+    setOpenActionMenuId(null);
+  };
+
+  const openViewModal = (row) => {
+    setViewModalRow(row);
     setOpenActionMenuId(null);
   };
 
@@ -322,6 +331,13 @@ const InstallmentInvoice = () => {
         (r.plan_name || '').toLowerCase().includes(q)
     );
   }, [rows, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const pageSize = 10;
+  const pagedRows = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const formatDate = (dateString) => {
     if (!dateString) return '—';
@@ -422,8 +438,8 @@ const InstallmentInvoice = () => {
                 </div>
               ) : (
                 <>
-                  {/* Mobile cards */}
-                  <ul className="md:hidden divide-y divide-gray-200">
+                  {/* Mobile cards (kept for reference; table is now used on mobile too) */}
+                  <ul className="hidden divide-y divide-gray-200">
                     {filtered.map((r) => (
                       <li key={r.user_id} className="p-4 space-y-2">
                         <div className="flex justify-between gap-2">
@@ -494,10 +510,14 @@ const InstallmentInvoice = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  setMenuPosition({
-                                    top: rect.bottom + window.scrollY + 4,
-                                    right: window.innerWidth - rect.right + window.scrollX,
-                                  });
+                                  setMenuPosition(
+                                    computeFixedActionMenuPosition({
+                                      rect,
+                                      menuWidth: 208, // w-52
+                                      menuHeight: 220,
+                                      gap: 6,
+                                    })
+                                  );
                                   setOpenActionMenuId(openActionMenuId === r.user_id ? null : r.user_id);
                                 }}
                                 className="text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded p-1.5"
@@ -520,8 +540,8 @@ const InstallmentInvoice = () => {
                     ))}
                   </ul>
 
-                  {/* Desktop table */}
-                  <div className="hidden md:block overflow-x-auto">
+                  {/* Table (all screens; horizontally scrollable on mobile) */}
+                  <div className="overflow-x-auto rounded-b-xl">
                     <table className="min-w-[1280px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -549,14 +569,14 @@ const InstallmentInvoice = () => {
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Last invoice
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-primary-700 tracking-wider">
+                          <th className="sticky right-0 z-10 bg-gray-50 px-4 py-3 text-right text-xs font-medium text-primary-700 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">
                             Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 bg-white">
-                        {filtered.map((r) => (
-                          <tr key={r.user_id} className="hover:bg-gray-50">
+                        {pagedRows.map((r) => (
+                          <tr key={r.user_id} className="group hover:bg-gray-50">
                             <td className="px-4 py-3 align-top">
                               <div className="text-sm font-medium text-gray-900">{r.user_name || '—'}</div>
                               <div className="text-xs text-gray-500 break-all">{r.email}</div>
@@ -614,17 +634,21 @@ const InstallmentInvoice = () => {
                                 <span className="text-gray-400">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 align-top text-right">
+                            <td className="sticky right-0 z-[1] bg-white px-4 py-3 align-top text-right shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="relative inline-flex action-menu">
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const rect = e.currentTarget.getBoundingClientRect();
-                                    setMenuPosition({
-                                      top: rect.bottom + window.scrollY + 4,
-                                      right: window.innerWidth - rect.right + window.scrollX,
-                                    });
+                                    setMenuPosition(
+                                      computeFixedActionMenuPosition({
+                                        rect,
+                                        menuWidth: 208, // w-52
+                                        menuHeight: 220,
+                                        gap: 6,
+                                      })
+                                    );
                                     setOpenActionMenuId(openActionMenuId === r.user_id ? null : r.user_id);
                                   }}
                                   className="text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded p-1.5"
@@ -646,6 +670,9 @@ const InstallmentInvoice = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                  <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                    <Pagination totalItems={filtered.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
                   </div>
                 </>
               )}
@@ -671,14 +698,11 @@ const InstallmentInvoice = () => {
               type="button"
               onClick={() => {
                 const target = rows.find((x) => Number(x.user_id) === Number(openActionMenuId));
-                if (target) {
-                  navigate('/superadmin/users', { state: { openEditUserId: target.user_id } });
-                }
-                setOpenActionMenuId(null);
+                if (target) openViewModal(target);
               }}
               className="block w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-50"
             >
-              View and edit
+              View
             </button>
             <button
               type="button"
@@ -706,6 +730,138 @@ const InstallmentInvoice = () => {
           </div>
         </div>,
         document.body
+      )}
+
+      {viewModalRow && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[10000]"
+          onClick={() => setViewModalRow(null)}
+          role="presentation"
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[min(100vh-2rem,900px)] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="installment-view-title"
+          >
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200 bg-white rounded-t-xl">
+              <div className="min-w-0">
+                <h2 id="installment-view-title" className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+                  Installment details
+                </h2>
+                <p className="mt-1 text-sm text-gray-700 break-words">
+                  <span className="font-semibold text-gray-900">{viewModalRow.user_name || 'School'}</span>{' '}
+                  <span className="text-gray-400">·</span>{' '}
+                  <span className="text-gray-600 break-all">{viewModalRow.email || '—'}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewModalRow(null)}
+                className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-4 sm:px-6 py-5 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-medium text-gray-500">Plan</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                    {viewModalRow.plan_name || (viewModalRow.subscription_id ? '—' : 'Subscription pending')}
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-gray-500">Cycle</p>
+                  <p className="mt-1 text-sm text-gray-800">
+                    {viewModalRow.current_cycle_start && viewModalRow.current_cycle_end
+                      ? `${formatDate(viewModalRow.current_cycle_start)} → ${formatDate(viewModalRow.current_cycle_end)}`
+                      : '—'}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-medium text-gray-500">Next due</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{formatDate(viewModalRow.next_due_date)}</p>
+                  <div className="mt-3">
+                    {viewModalRow.is_overdue ? (
+                      <span className="inline-flex text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-800">
+                        Overdue{viewModalRow.days_overdue ? ` ${viewModalRow.days_overdue}d` : ''}
+                      </span>
+                    ) : viewModalRow.subscription_id ? (
+                      <span className="inline-flex text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                        OK
+                      </span>
+                    ) : (
+                      <span className="inline-flex text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                        No sub
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-blue-100/80 bg-gradient-to-br from-blue-50/90 via-white to-white p-4 sm:p-5 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-500">Total installment contract</p>
+                    <p className="mt-1 text-lg sm:text-xl font-bold text-gray-900">{formatMoney(viewModalRow.base_amount)}</p>
+                    {viewModalRow.credits_per_cycle != null && viewModalRow.credit_rate != null && (
+                      <p className="mt-1 text-xs text-gray-600">
+                        {viewModalRow.credits_per_cycle} credits @ {formatMoney(viewModalRow.credit_rate)} per credit
+                      </p>
+                    )}
+                  </div>
+                  <div className="sm:text-right">
+                    <p className="text-xs font-medium text-gray-500">Allocated credits</p>
+                    <p className="mt-1 text-lg sm:text-xl font-bold text-primary-700">
+                      {viewModalRow.credits_per_cycle != null ? viewModalRow.credits_per_cycle : '—'}
+                    </p>
+                    <p className="mt-1 text-[11px] text-gray-500">Allocated at school creation</p>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-xs font-medium text-gray-500">Installment progress</p>
+                  <div className="mt-2 max-w-full">
+                    <InstallmentProgressBar row={viewModalRow} />
+                  </div>
+                  <p className="mt-2 text-xs text-gray-600">{phaseProgressLabel(viewModalRow)}</p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-gray-200 p-4">
+                <p className="text-xs font-medium text-gray-500">Last invoice</p>
+                {viewModalRow.last_invoice_number ? (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm font-semibold text-gray-900">{viewModalRow.last_invoice_number}</p>
+                    <p className="text-sm text-gray-800">
+                      <span className="font-medium">{viewModalRow.last_invoice_status || '—'}</span>
+                      <span className="text-gray-400 mx-1">·</span>
+                      due {formatDate(viewModalRow.last_invoice_due_date)}
+                      <span className="text-gray-400 mx-1">·</span>
+                      {formatMoney(viewModalRow.last_invoice_amount)}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-gray-500">—</p>
+                )}
+              </div>
+            </div>
+
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex justify-end bg-gray-50/80 rounded-b-xl">
+              <button
+                type="button"
+                onClick={() => setViewModalRow(null)}
+                className="w-full sm:w-auto px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {generateModalRow && (

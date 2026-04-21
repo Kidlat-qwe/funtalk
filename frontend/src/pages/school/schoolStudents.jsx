@@ -3,7 +3,10 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
+import ResponsiveSelect from '../../components/ResponsiveSelect.jsx';
+import Pagination from '../../components/Pagination.jsx';
 import { API_BASE_URL } from '@/config/api.js';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 
 const CEFR_LEVEL_OPTIONS = [
   { value: 'A1', label: 'A1' },
@@ -26,6 +29,7 @@ const SchoolStudents = () => {
   const [nameSearch, setNameSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [formData, setFormData] = useState({
     studentName: '',
     studentAge: '',
@@ -301,6 +305,13 @@ const SchoolStudents = () => {
     return matchesName && matchesLevel && matchesStatus;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [nameSearch, levelFilter, statusFilter]);
+
+  const pageSize = 10;
+  const pagedStudents = filteredStudents.slice((page - 1) * pageSize, page * pageSize);
+
   // Standard level options (CEFR) + keep legacy values visible in filter if data still has them.
   const levels = [
     ...CEFR_LEVEL_OPTIONS.map((o) => o.value),
@@ -388,8 +399,9 @@ const SchoolStudents = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto overflow-hidden">
-                    <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1000px' }}>
+                  <>
+                  <div className="overflow-x-auto rounded-b-xl">
+                    <table className="min-w-[1100px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
@@ -406,11 +418,12 @@ const SchoolStudents = () => {
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Age</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
-                            <select
+                            <ResponsiveSelect
                               value={levelFilter}
                               onChange={(e) => setLevelFilter(e.target.value)}
-                              className="text-xs font-medium text-gray-500 bg-transparent border-0 rounded px-2 py-1 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                              className="w-full max-w-[8rem] text-xs font-medium text-gray-500 bg-transparent rounded px-2 py-1 focus:ring-1 focus:ring-primary-500 focus:outline-none border border-gray-200 lg:border-0"
                               onClick={(e) => e.stopPropagation()}
+                              aria-label="Filter by level"
                             >
                               <option value="">Level</option>
                               {levels.map((level) => (
@@ -418,30 +431,33 @@ const SchoolStudents = () => {
                                   {level}
                                 </option>
                               ))}
-                            </select>
+                            </ResponsiveSelect>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Email</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Parent Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">Parent Contact</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Email</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Parent Name</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Parent Contact</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
-                            <select
+                            <ResponsiveSelect
                               value={statusFilter}
                               onChange={(e) => setStatusFilter(e.target.value)}
-                              className="text-xs font-medium text-gray-500 bg-transparent border-0 rounded px-2 py-1 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                              className="w-full max-w-[9rem] text-xs font-medium text-gray-500 bg-transparent rounded px-2 py-1 focus:ring-1 focus:ring-primary-500 focus:outline-none border border-gray-200 lg:border-0"
                               onClick={(e) => e.stopPropagation()}
+                              aria-label="Filter by status"
                             >
                               <option value="">Status</option>
                               <option value="active">Active</option>
                               <option value="inactive">Inactive</option>
-                            </select>
+                            </ResponsiveSelect>
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">Created</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Created</th>
+                          <th className="sticky right-0 z-10 bg-gray-50 px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredStudents.map((student) => (
-                          <tr key={student.student_id} className="hover:bg-gray-50">
+                        {pagedStudents.map((student) => (
+                          <tr key={student.student_id} className="group hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">{student.student_name || 'N/A'}</div>
                             </td>
@@ -457,13 +473,15 @@ const SchoolStudents = () => {
                                 <span className="text-sm text-gray-500">-</span>
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
-                              <div className="text-sm text-gray-900">{student.student_email || '-'}</div>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="max-w-[11rem] text-sm text-gray-900 break-all sm:max-w-none sm:break-normal" title={student.student_email || ''}>
+                                {student.student_email || '-'}
+                              </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{student.parent_name || '-'}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{student.parent_contact || '-'}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -477,10 +495,10 @@ const SchoolStudents = () => {
                                 </span>
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                            <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-500">{formatDate(student.created_at)}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td className="sticky right-0 z-[1] bg-white px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="inline-block text-left">
                                 <button
                                   type="button"
@@ -491,10 +509,14 @@ const SchoolStudents = () => {
                                       return;
                                     }
                                     const rect = e.currentTarget.getBoundingClientRect();
-                                    setMenuPosition({
-                                      top: rect.bottom + 8,
-                                      right: window.innerWidth - rect.right,
-                                    });
+                                    setMenuPosition(
+                                      computeFixedActionMenuPosition({
+                                        rect,
+                                        menuWidth: 112, // w-28
+                                        menuHeight: 120,
+                                        gap: 6,
+                                      })
+                                    );
                                     setOpenActionMenuId(student.student_id);
                                   }}
                                   className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -511,6 +533,10 @@ const SchoolStudents = () => {
                       </tbody>
                     </table>
                   </div>
+                  <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                    <Pagination totalItems={filteredStudents.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                  </div>
+                  </>
                 )}
               </div>
 

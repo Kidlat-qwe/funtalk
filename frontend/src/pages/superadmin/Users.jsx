@@ -3,7 +3,10 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
+import ResponsiveSelect from '../../components/ResponsiveSelect';
+import Pagination from '../../components/Pagination.jsx';
 import { API_BASE_URL } from '@/config/api.js';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 
 const todayYyyyMmDd = () => new Date().toISOString().slice(0, 10);
 
@@ -16,6 +19,7 @@ const Users = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [nameSearch, setNameSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -561,10 +565,14 @@ const Users = () => {
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
     
-    setMenuPosition({
-      top: rect.bottom + window.scrollY + 1,
-      right: window.innerWidth - rect.right + window.scrollX,
-    });
+    setMenuPosition(
+      computeFixedActionMenuPosition({
+        rect,
+        menuWidth: 192, // w-40 (mobile) / w-48 (>=sm) — keep safe max
+        menuHeight: 140,
+        gap: 6,
+      })
+    );
     
     setOpenMenuId(openMenuId === userId ? null : userId);
   };
@@ -642,6 +650,13 @@ const Users = () => {
   const emptyListNoFilters =
     users.length === 0 && !roleFilter && !nameSearch.trim();
   const noMatchesWithData = users.length > 0 && filteredUsers.length === 0;
+
+  useEffect(() => {
+    setPage(1);
+  }, [nameSearch, roleFilter]);
+
+  const pageSize = 10;
+  const pagedUsers = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
 
   // Format user type for display
   const formatUserType = (userType) => {
@@ -877,7 +892,7 @@ const Users = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 px-4 py-3 sm:px-6 border-b border-gray-200 bg-gray-50/90">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 px-4 py-3 sm:px-6 border-b border-gray-200 bg-gray-50/90 min-w-0">
                       <div className="flex flex-col min-w-0 flex-1 sm:max-w-md">
                         <input
                           id="users-search"
@@ -890,19 +905,19 @@ const Users = () => {
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                         />
                       </div>
-                      <div className="flex flex-col w-full sm:w-auto sm:min-w-[10rem]">
-                        <select
+                      <div className="flex flex-col w-full sm:w-auto sm:min-w-[10rem] min-w-0">
+                        <ResponsiveSelect
                           id="users-role-filter"
                           aria-label="Filter users by role"
                           value={roleFilter}
                           onChange={(e) => setRoleFilter(e.target.value)}
-                          className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                          className="w-full max-w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                         >
                           <option value="">All roles</option>
                           <option value="superadmin">Superadmin</option>
                           <option value="school">School</option>
                           <option value="teacher">Teacher</option>
-                        </select>
+                        </ResponsiveSelect>
                       </div>
                     </div>
                     {filteredUsers.length === 0 ? (
@@ -938,8 +953,9 @@ const Users = () => {
                         </p>
                       </div>
                     ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full divide-y divide-gray-200">
+                  <>
+                  <div className="overflow-x-auto rounded-b-xl">
+                    <table className="min-w-[880px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
@@ -948,26 +964,26 @@ const Users = () => {
                           <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Email
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Role
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Billing type
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Status
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap">
                             Last login
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                          <th className="sticky right-0 z-10 bg-gray-50 px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">
                             Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredUsers.map((userItem) => (
-                          <tr key={userItem.user_id} className="hover:bg-gray-50">
+                        {pagedUsers.map((userItem) => (
+                          <tr key={userItem.user_id} className="group hover:bg-gray-50">
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className={`flex-shrink-0 h-10 w-10 rounded-full ${getAvatarColor(userItem.name)} flex items-center justify-center text-white font-medium text-sm overflow-hidden`}>
@@ -987,14 +1003,19 @@ const Users = () => {
                               </div>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{userItem.email || 'N/A'}</div>
+                              <div
+                                className="max-w-[11rem] text-sm text-gray-900 break-all sm:max-w-none sm:break-normal"
+                                title={userItem.email || ''}
+                              >
+                                {userItem.email || 'N/A'}
+                              </div>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(userItem.user_type)}`}>
                                 {formatUserType(userItem.user_type)}
                               </span>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-gray-900">{getBillingType(userItem)}</span>
                                 {subscriptionStatusByUserId[userItem.user_id]?.is_overdue && (
@@ -1004,8 +1025,8 @@ const Users = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                              <select
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                              <ResponsiveSelect
                                 value={userItem.status || 'active'}
                                 onChange={(e) => handleStatusChange(userItem.user_id, e.target.value)}
                                 className={`text-xs font-semibold rounded-full px-2 py-1 border-0 focus:ring-2 focus:ring-primary-500 ${
@@ -1015,13 +1036,14 @@ const Users = () => {
                                     ? 'bg-red-100 text-red-800'
                                     : 'bg-yellow-100 text-yellow-800'
                                 }`}
+                                aria-label="Account status"
                               >
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                                 <option value="pending">Pending</option>
-                              </select>
+                              </ResponsiveSelect>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden xl:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               {(() => {
                                 const lastLogin = formatLastLogin(userItem.last_login);
                                 if (!lastLogin) {
@@ -1035,7 +1057,7 @@ const Users = () => {
                                 );
                               })()}
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium hidden md:table-cell">
+                            <td className="sticky right-0 z-[1] bg-white px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="flex justify-end">
                                 <button
                                   onClick={(e) => handleActionClick(e, userItem.user_id)}
@@ -1063,6 +1085,10 @@ const Users = () => {
                       </tbody>
                     </table>
                   </div>
+                  <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                    <Pagination totalItems={filteredUsers.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                  </div>
+                  </>
                     )}
                   </>
                 )}
@@ -1219,7 +1245,7 @@ const Users = () => {
                             <label htmlFor="status" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Account status
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="status"
                               name="status"
                               value={formData.status}
@@ -1229,7 +1255,7 @@ const Users = () => {
                               <option value="active">Active</option>
                               <option value="inactive">Inactive</option>
                               <option value="pending">Pending</option>
-                            </select>
+                            </ResponsiveSelect>
                           </div>
                         )}
 
@@ -1259,7 +1285,7 @@ const Users = () => {
                           <label htmlFor="userType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                             User Type <span className="text-red-500">*</span>
                           </label>
-                          <select
+                          <ResponsiveSelect
                             id="userType"
                             name="userType"
                             value={formData.userType}
@@ -1271,7 +1297,7 @@ const Users = () => {
                             <option value="school">School</option>
                             <option value="superadmin">Superadmin</option>
                             <option value="teacher">Teacher</option>
-                          </select>
+                          </ResponsiveSelect>
                           {formErrors.userType && (
                             <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.userType}</p>
                           )}
@@ -1283,7 +1309,7 @@ const Users = () => {
                             <label htmlFor="billingType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Billing Type <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="billingType"
                               name="billingType"
                               value={formData.billingType}
@@ -1295,7 +1321,7 @@ const Users = () => {
                               <option value="">Select billing type</option>
                               <option value="patty">Patty (Monthly)</option>
                               <option value="explore">Explore (Full Payment)</option>
-                            </select>
+                            </ResponsiveSelect>
                             {formErrors.billingType && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.billingType}</p>
                             )}
@@ -1307,7 +1333,7 @@ const Users = () => {
                             <label htmlFor="gender" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Gender <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="gender"
                               name="gender"
                               value={formData.gender}
@@ -1320,7 +1346,7 @@ const Users = () => {
                               <option value="male">Male</option>
                               <option value="female">Female</option>
                               <option value="other">Other</option>
-                            </select>
+                            </ResponsiveSelect>
                             {formErrors.gender && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.gender}</p>
                             )}
@@ -1332,7 +1358,7 @@ const Users = () => {
                             <label htmlFor="teacherEmploymentType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Teacher Type <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="teacherEmploymentType"
                               name="teacherEmploymentType"
                               value={formData.teacherEmploymentType}
@@ -1343,7 +1369,7 @@ const Users = () => {
                             >
                               <option value="part_time">Part-time</option>
                               <option value="full_time">Full-time</option>
-                            </select>
+                            </ResponsiveSelect>
                             {formErrors.teacherEmploymentType && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.teacherEmploymentType}</p>
                             )}
@@ -1430,7 +1456,7 @@ const Users = () => {
                                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                                   Billing Duration
                                 </label>
-                                <select
+                                <ResponsiveSelect
                                   name="billingConfig.billingDurationMonths"
                                   value={formData.billingConfig.billingDurationMonths}
                                   onChange={handleFormChange}
@@ -1441,7 +1467,7 @@ const Users = () => {
                                   <option value="3">3 months</option>
                                   <option value="6">6 months</option>
                                   <option value="12">12 months</option>
-                                </select>
+                                </ResponsiveSelect>
                                 {formErrors.billingDurationMonths && (
                                   <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.billingDurationMonths}</p>
                                 )}
@@ -1530,7 +1556,7 @@ const Users = () => {
                                 <label htmlFor="paymentStatus" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                                   Payment Status
                                 </label>
-                                <select
+                                <ResponsiveSelect
                                   id="paymentStatus"
                                   name="paymentStatus"
                                   value={formData.paymentStatus}
@@ -1539,13 +1565,13 @@ const Users = () => {
                                 >
                                   <option value="pending">Pending</option>
                                   <option value="paid">Paid</option>
-                                </select>
+                                </ResponsiveSelect>
                               </div>
                               <div>
                                 <label htmlFor="paymentType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                                   Payment Type
                                 </label>
-                                <select
+                                <ResponsiveSelect
                                   id="paymentType"
                                   name="paymentType"
                                   value={formData.paymentType}
@@ -1556,7 +1582,7 @@ const Users = () => {
                                   <option value="e_wallet">E-wallets</option>
                                   <option value="card">Card</option>
                                   <option value="cash">Cash</option>
-                                </select>
+                                </ResponsiveSelect>
                               </div>
                               {formData.paymentStatus === 'paid' && (
                                 <>

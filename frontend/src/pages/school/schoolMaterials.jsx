@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import Pagination from '../../components/Pagination.jsx';
 
 const SchoolMaterials = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ const SchoolMaterials = () => {
   const [materials, setMaterials] = useState([]);
   const [isFetching, setIsFetching] = useState(false);
   const [nameSearch, setNameSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState(null);
   const [formData, setFormData] = useState({ materialName: '', materialType: '', file: null });
@@ -67,6 +69,13 @@ const SchoolMaterials = () => {
   const filteredMaterials = materials.filter((m) =>
     !nameSearch || m.material_name?.toLowerCase().includes(nameSearch.toLowerCase())
   );
+
+  useEffect(() => {
+    setPage(1);
+  }, [nameSearch]);
+
+  const pageSize = 10;
+  const pagedMaterials = filteredMaterials.slice((page - 1) * pageSize, page * pageSize);
 
   const getResolvedFileUrl = (material) => {
     if (!material?.file_url) return '';
@@ -219,6 +228,7 @@ const SchoolMaterials = () => {
               ) : filteredMaterials.length === 0 ? (
                 <div className="p-8 text-center text-sm text-gray-600">No materials found.</div>
               ) : (
+                <>
                 <div className="overflow-x-auto overflow-hidden">
                   <table className="w-full divide-y divide-gray-200" style={{ minWidth: '800px' }}>
                     <thead className="bg-gray-50">
@@ -231,7 +241,7 @@ const SchoolMaterials = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredMaterials.map((material) => (
+                      {pagedMaterials.map((material) => (
                         <tr key={material.material_id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{material.material_name}</td>
                           <td className="px-6 py-4 text-sm text-gray-700">{material.material_type || 'student_provided'}</td>
@@ -265,6 +275,10 @@ const SchoolMaterials = () => {
                     </tbody>
                   </table>
                 </div>
+                <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                  <Pagination totalItems={filteredMaterials.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                </div>
+                </>
               )}
             </div>
           </div>

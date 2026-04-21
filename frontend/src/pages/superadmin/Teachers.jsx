@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import ResponsiveSelect from '../../components/ResponsiveSelect';
+import Pagination from '../../components/Pagination.jsx';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 
 const Teachers = () => {
   const navigate = useNavigate();
@@ -15,8 +18,9 @@ const Teachers = () => {
   const [nameSearch, setNameSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
@@ -137,6 +141,13 @@ const Teachers = () => {
   const emptyListNoFilters =
     teachers.length === 0 && !statusFilter && !genderFilter && !nameSearch.trim();
 
+  useEffect(() => {
+    setPage(1);
+  }, [nameSearch, statusFilter, genderFilter]);
+
+  const pageSize = 10;
+  const pagedTeachers = filteredTeachers.slice((page - 1) * pageSize, page * pageSize);
+
   // Format gender for display
   const formatGender = (gender) => {
     if (!gender) return 'N/A';
@@ -175,16 +186,14 @@ const Teachers = () => {
     e.stopPropagation();
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
-    const menuWidth = 192; // 12rem
-    const viewportLeft = window.scrollX;
-    const viewportRight = window.scrollX + window.innerWidth;
-    const preferredLeft = rect.right + window.scrollX - menuWidth;
-    const left = Math.max(viewportLeft + 8, Math.min(preferredLeft, viewportRight - menuWidth - 8));
-
-    setMenuPosition({
-      top: rect.bottom + window.scrollY + 6,
-      left,
+    // Keep menu near trigger and in-viewport on mobile/desktop.
+    const pos = computeFixedActionMenuPosition({
+      rect,
+      menuWidth: 192, // w-40 / w-48
+      menuHeight: 170,
+      gap: 6,
     });
+    setMenuPosition(pos);
     
     setOpenMenuId(openMenuId === teacherId ? null : teacherId);
   };
@@ -399,7 +408,7 @@ const Teachers = () => {
                         />
                       </div>
                       <div className="flex flex-col w-full sm:w-auto sm:min-w-[9rem]">
-                        <select
+                        <ResponsiveSelect
                           id="teachers-gender-filter"
                           aria-label="Filter teachers by gender"
                           value={genderFilter}
@@ -410,10 +419,10 @@ const Teachers = () => {
                           <option value="male">Male</option>
                           <option value="female">Female</option>
                           <option value="other">Other</option>
-                        </select>
+                        </ResponsiveSelect>
                       </div>
                       <div className="flex flex-col w-full sm:w-auto sm:min-w-[9rem]">
-                        <select
+                        <ResponsiveSelect
                           id="teachers-status-filter"
                           aria-label="Filter teachers by status"
                           value={statusFilter}
@@ -423,7 +432,7 @@ const Teachers = () => {
                           <option value="">All statuses</option>
                           <option value="active">Active</option>
                           <option value="inactive">Inactive</option>
-                        </select>
+                        </ResponsiveSelect>
                       </div>
                     </div>
                     {filteredTeachers.length === 0 ? (
@@ -459,8 +468,9 @@ const Teachers = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full divide-y divide-gray-200">
+                  <>
+                  <div className="overflow-x-auto rounded-b-xl">
+                    <table className="min-w-[980px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
@@ -469,23 +479,23 @@ const Teachers = () => {
                           <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Email
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Gender
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Media
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Status
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                          <th className="sticky right-0 z-10 bg-gray-50 px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">
                             Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredTeachers.map((teacher) => (
-                          <tr key={teacher.teacher_id} className="hover:bg-gray-50">
+                        {pagedTeachers.map((teacher) => (
+                          <tr key={teacher.teacher_id} className="group hover:bg-gray-50">
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 {teacher.profile_picture ? (
@@ -511,14 +521,16 @@ const Teachers = () => {
                               </div>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{teacher.email || 'N/A'}</div>
+                              <div className="max-w-[11rem] text-sm text-gray-900 break-all sm:max-w-none sm:break-normal" title={teacher.email || ''}>
+                                {teacher.email || 'N/A'}
+                              </div>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
                                 {formatGender(teacher.gender)}
                               </span>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden xl:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center space-x-2">
                                 {/* Audio Icon */}
                                 <button
@@ -565,8 +577,8 @@ const Teachers = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                              <select
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                              <ResponsiveSelect
                                 value={teacher.status === 'inactive' ? 'inactive' : 'active'}
                                 onChange={(e) => handleStatusChange(teacher.teacher_id, e.target.value)}
                                 className={`text-xs font-semibold rounded-full px-2 py-1 border-0 focus:ring-2 focus:ring-primary-500 ${
@@ -576,12 +588,13 @@ const Teachers = () => {
                                     ? 'bg-red-100 text-red-800'
                                     : 'bg-green-100 text-green-800'
                                 }`}
+                                aria-label="Teacher status"
                               >
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
-                              </select>
+                              </ResponsiveSelect>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium hidden md:table-cell">
+                            <td className="sticky right-0 z-[1] bg-white px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="flex justify-end">
                                 <button
                                   onClick={(e) => handleActionClick(e, teacher.teacher_id)}
@@ -609,6 +622,10 @@ const Teachers = () => {
                       </tbody>
                     </table>
                   </div>
+                  <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                    <Pagination totalItems={filteredTeachers.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                  </div>
+                  </>
                     )}
                   </>
                 )}
@@ -627,7 +644,7 @@ const Teachers = () => {
                   className="fixed w-40 sm:w-48 bg-white rounded-md shadow-xl z-[9999] border border-gray-200 action-menu"
                   style={{
                     top: `${menuPosition.top}px`,
-                    left: `${menuPosition.left}px`,
+                    right: `${menuPosition.right}px`,
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -795,18 +812,19 @@ const Teachers = () => {
                         <label htmlFor="edit-gender" className="block text-sm font-medium text-gray-700 mb-1">
                           Gender
                         </label>
-                        <select
+                        <ResponsiveSelect
                           id="edit-gender"
                           name="gender"
                           value={editFormData.gender}
                           onChange={handleEditChange}
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                          aria-label="Gender"
                         >
                           <option value="">Not specified</option>
                           <option value="male">Male</option>
                           <option value="female">Female</option>
                           <option value="other">Other</option>
-                        </select>
+                        </ResponsiveSelect>
                       </div>
                       <div>
                         <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">

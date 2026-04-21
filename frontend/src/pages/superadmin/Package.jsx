@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import ResponsiveSelect from '../../components/ResponsiveSelect';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 
 const Package = () => {
   const navigate = useNavigate();
@@ -294,10 +296,14 @@ const Package = () => {
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
 
-    setMenuPosition({
-      top: rect.bottom + window.scrollY + 6,
-      right: window.innerWidth - rect.right + window.scrollX,
-    });
+    setMenuPosition(
+      computeFixedActionMenuPosition({
+        rect,
+        menuWidth: 176, // w-44
+        menuHeight: 200,
+        gap: 6,
+      })
+    );
 
     setOpenMenuId(openMenuId === packageId ? null : packageId);
   };
@@ -371,7 +377,7 @@ const Package = () => {
                     />
                   </div>
                   <div className="w-full sm:w-auto sm:min-w-[11rem]">
-                    <select
+                    <ResponsiveSelect
                       value={filterActive}
                       onChange={(e) => setFilterActive(e.target.value)}
                       aria-label="Filter packages by status"
@@ -380,7 +386,7 @@ const Package = () => {
                       <option value="">All statuses</option>
                       <option value="true">Active only</option>
                       <option value="false">Inactive only</option>
-                    </select>
+                    </ResponsiveSelect>
                   </div>
                 </div>
               </div>

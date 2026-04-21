@@ -5,6 +5,9 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { BOOKING_TIME_OPTIONS } from '../../constants/bookingTimeOptions.js';
 import { API_BASE_URL } from '@/config/api.js';
+import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
+import ResponsiveSelect from '../../components/ResponsiveSelect';
+import Pagination from '../../components/Pagination.jsx';
 import {
   normalizeAppointmentTimeHHMM,
   toCalendarYyyyMmDd,
@@ -92,6 +95,7 @@ const Appointment = () => {
   const [teacherFilter, setTeacherFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -285,6 +289,13 @@ const Appointment = () => {
     });
   }, [appointments, studentSearch, appointmentsTab]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [appointmentsTab, statusFilter, teacherFilter, dateFilter, studentSearch]);
+
+  const pageSize = 10;
+  const pagedAppointments = filteredAppointments.slice((page - 1) * pageSize, page * pageSize);
+
   /** Allowed status changes (no_show removed from UI; legacy rows stay read-only). */
   const canChangeAppointmentStatus = (current, next) => {
     const c = current || 'pending';
@@ -362,10 +373,14 @@ const Appointment = () => {
     const button = e.currentTarget;
     const rect = button.getBoundingClientRect();
     
-    setMenuPosition({
-      top: rect.bottom + window.scrollY + 1,
-      right: window.innerWidth - rect.right + window.scrollX,
-    });
+    setMenuPosition(
+      computeFixedActionMenuPosition({
+        rect,
+        menuWidth: 192, // w-40 / w-48
+        menuHeight: 220,
+        gap: 6,
+      })
+    );
     
     setOpenMenuId(openMenuId === appointmentId ? null : appointmentId);
   };
@@ -886,7 +901,7 @@ const Appointment = () => {
                   />
                 </div>
                 <div className="w-full sm:w-auto sm:min-w-[10rem]">
-                  <select
+                  <ResponsiveSelect
                     id="appointments-status-filter"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
@@ -905,7 +920,7 @@ const Appointment = () => {
                         <option value="approved">Approved</option>
                       </>
                     )}
-                  </select>
+                  </ResponsiveSelect>
                 </div>
               </div>
 
@@ -943,39 +958,40 @@ const Appointment = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full divide-y divide-gray-200">
+                  <>
+                  <div className="overflow-x-auto rounded-b-xl">
+                    <table className="min-w-[1120px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Student
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Teacher
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             School
                           </th>
                           <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Date & Time
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Class Type
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden xl:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Material
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                          <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                             Status
                           </th>
-                          <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">
+                          <th className="sticky right-0 z-10 bg-gray-50 px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">
                             Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredAppointments.map((appointment) => (
-                          <tr key={appointment.appointment_id} className="hover:bg-gray-50">
+                        {pagedAppointments.map((appointment) => (
+                          <tr key={appointment.appointment_id} className="group hover:bg-gray-50">
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div>
                                 <div className="text-sm font-medium text-gray-900">
@@ -989,26 +1005,26 @@ const Appointment = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{appointment.teacher_name || 'N/A'}</div>
                               {appointment.teacher_email && (
                                 <div className="text-xs text-gray-500">{appointment.teacher_email}</div>
                               )}
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden xl:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{appointment.school_name || 'N/A'}</div>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{formatDate(appointment.appointment_date)}</div>
                               <div className="text-xs text-gray-500">{formatTime(appointment.appointment_time)}</div>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{appointment.class_type || '-'}</div>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden xl:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{appointment.material_name || '-'}</div>
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                            <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               {appointment.status === 'no_show' ? (
                                 <span
                                   className={`inline-block text-xs font-semibold rounded-full px-2 py-1 ${getStatusColor('no_show')}`}
@@ -1016,7 +1032,7 @@ const Appointment = () => {
                                   No Show
                                 </span>
                               ) : isRowStatusTerminal(appointment.status) ? (
-                                <select
+                                <ResponsiveSelect
                                   value={appointment.status || 'pending'}
                                   disabled
                                   aria-label="Appointment status (locked)"
@@ -1027,12 +1043,13 @@ const Appointment = () => {
                                       {o.label}
                                     </option>
                                   ))}
-                                </select>
+                                </ResponsiveSelect>
                               ) : (
-                                <select
+                                <ResponsiveSelect
                                   value={appointment.status || 'pending'}
                                   onChange={(e) => handleStatusChange(appointment.appointment_id, e.target.value)}
                                   className={`text-xs font-semibold rounded-full px-2 py-1 border-0 focus:ring-2 focus:ring-primary-500 ${getStatusColor(appointment.status)}`}
+                                  aria-label="Appointment status"
                                 >
                                   {STATUS_SELECT_OPTIONS.map((o) => (
                                     <option
@@ -1043,10 +1060,10 @@ const Appointment = () => {
                                       {o.label}
                                     </option>
                                   ))}
-                                </select>
+                                </ResponsiveSelect>
                               )}
                             </td>
-                            <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium hidden md:table-cell">
+                            <td className="sticky right-0 z-[1] bg-white px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="flex justify-end">
                                 <button
                                   onClick={(e) => handleActionClick(e, appointment.appointment_id)}
@@ -1074,6 +1091,10 @@ const Appointment = () => {
                       </tbody>
                     </table>
                   </div>
+                  <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                    <Pagination totalItems={filteredAppointments.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                  </div>
+                  </>
                 )}
               </div>
 
@@ -1386,7 +1407,7 @@ const Appointment = () => {
                             <label htmlFor="appointmentTime" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Time <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="appointmentTime"
                               name="appointmentTime"
                               value={formData.appointmentTime}
@@ -1401,7 +1422,7 @@ const Appointment = () => {
                                   {opt.label}
                                 </option>
                               ))}
-                            </select>
+                            </ResponsiveSelect>
                             {formErrors.appointmentTime && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.appointmentTime}</p>
                             )}
@@ -1413,7 +1434,7 @@ const Appointment = () => {
                           <label htmlFor="teacherId" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                             Teacher <span className="text-red-500">*</span>
                           </label>
-                          <select
+                          <ResponsiveSelect
                             id="teacherId"
                             name="teacherId"
                             value={formData.teacherId}
@@ -1437,7 +1458,7 @@ const Appointment = () => {
                                 {teacher.fullname || teacher.user_name || 'N/A'}
                               </option>
                             ))}
-                          </select>
+                          </ResponsiveSelect>
                           {formErrors.teacherId && (
                             <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.teacherId}</p>
                           )}
@@ -1499,7 +1520,7 @@ const Appointment = () => {
                             <label htmlFor="studentLevel" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Level (CEFR) <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="studentLevel"
                               name="studentLevel"
                               value={formData.studentLevel}
@@ -1514,7 +1535,7 @@ const Appointment = () => {
                                   {option.label}
                                 </option>
                               ))}
-                            </select>
+                            </ResponsiveSelect>
                             {formErrors.studentLevel && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.studentLevel}</p>
                             )}
@@ -1524,7 +1545,7 @@ const Appointment = () => {
                             <label htmlFor="duration" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Duration <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="duration"
                               name="duration"
                               value={formData.duration}
@@ -1538,7 +1559,7 @@ const Appointment = () => {
                                   {option.label}
                                 </option>
                               ))}
-                            </select>
+                            </ResponsiveSelect>
                             {formErrors.duration && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.duration}</p>
                             )}
@@ -1548,7 +1569,7 @@ const Appointment = () => {
                             <label htmlFor="classType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Class Type <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="classType"
                               name="classType"
                               value={formData.classType}
@@ -1563,7 +1584,7 @@ const Appointment = () => {
                                   {option.label}
                                 </option>
                               ))}
-                            </select>
+                            </ResponsiveSelect>
                             {formErrors.classType && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.classType}</p>
                             )}
@@ -1575,7 +1596,7 @@ const Appointment = () => {
                           <label htmlFor="materialType" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                             Material Type <span className="text-red-500">*</span>
                           </label>
-                          <select
+                          <ResponsiveSelect
                             id="materialType"
                             name="materialType"
                             value={formData.materialType}
@@ -1589,7 +1610,7 @@ const Appointment = () => {
                                 {option.label}
                               </option>
                             ))}
-                          </select>
+                          </ResponsiveSelect>
                           {formErrors.materialType && (
                             <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.materialType}</p>
                           )}
@@ -1600,7 +1621,7 @@ const Appointment = () => {
                             <label htmlFor="materialId" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Teaching Material <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <ResponsiveSelect
                               id="materialId"
                               name="materialId"
                               value={formData.materialId}
@@ -1615,7 +1636,7 @@ const Appointment = () => {
                                   {material.material_name || 'N/A'}
                                 </option>
                               ))}
-                            </select>
+                            </ResponsiveSelect>
                             {formErrors.materialId && (
                               <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.materialId}</p>
                             )}

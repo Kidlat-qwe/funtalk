@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import ResponsiveSelect from '../../components/ResponsiveSelect';
+import Pagination from '../../components/Pagination.jsx';
 
 const TeacherAppointments = () => {
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ const TeacherAppointments = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -99,6 +102,13 @@ const TeacherAppointments = () => {
       apt.school_name?.toLowerCase().includes(studentSearch.toLowerCase());
     return matchesSearch;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [studentSearch, statusFilter, dateFilter]);
+
+  const pageSize = 10;
+  const pagedAppointments = filteredAppointments.slice((page - 1) * pageSize, page * pageSize);
 
   // Format date and time
   const formatDateTime = (date, time) => {
@@ -277,10 +287,11 @@ const TeacherAppointments = () => {
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
+                    <ResponsiveSelect
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      aria-label="Status"
                     >
                       <option value="">All Status</option>
                       <option value="pending">Pending</option>
@@ -288,7 +299,7 @@ const TeacherAppointments = () => {
                       <option value="completed">Completed</option>
                       <option value="cancelled">Cancelled</option>
                       <option value="no_show">No Show</option>
-                    </select>
+                    </ResponsiveSelect>
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Date From</label>
@@ -322,21 +333,22 @@ const TeacherAppointments = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto overflow-hidden">
-                    <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1000px' }}>
+                  <>
+                  <div className="overflow-x-auto rounded-b-xl">
+                    <table className="min-w-[980px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Date & Time</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Student</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden lg:table-cell">School</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">Material</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">School</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Material</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Status</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Actions</th>
+                          <th className="sticky right-0 z-10 bg-gray-50 px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.08)]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredAppointments.map((appointment) => (
-                          <tr key={appointment.appointment_id} className="hover:bg-gray-50">
+                        {pagedAppointments.map((appointment) => (
+                          <tr key={appointment.appointment_id} className="group hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">
                                 {formatDateTime(appointment.appointment_date, appointment.appointment_time)}
@@ -348,10 +360,10 @@ const TeacherAppointments = () => {
                                 <div className="text-xs text-gray-500">Level: {appointment.student_level}</div>
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                            <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{appointment.school_name || 'N/A'}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                            <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-500">{appointment.material_name || '-'}</div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -359,7 +371,7 @@ const TeacherAppointments = () => {
                                 {formatStatus(appointment.status)}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td className="sticky right-0 z-[1] bg-white px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={() => handleViewDetails(appointment)}
@@ -383,6 +395,10 @@ const TeacherAppointments = () => {
                       </tbody>
                     </table>
                   </div>
+                  <div className="px-4 py-3 sm:px-6 border-t border-gray-200">
+                    <Pagination totalItems={filteredAppointments.length} pageSize={pageSize} currentPage={page} onPageChange={setPage} />
+                  </div>
+                  </>
                 )}
               </div>
 

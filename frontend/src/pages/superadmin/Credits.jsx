@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import Pagination from '../../components/Pagination.jsx';
 
 const Credits = () => {
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ const Credits = () => {
   const [transactions, setTransactions] = useState([]);
   const [isFetching, setIsFetching] = useState(false);
   const [activeTab, setActiveTab] = useState('balances'); // 'balances' or 'transactions'
+  const [balancesPage, setBalancesPage] = useState(1);
+  const [transactionsPage, setTransactionsPage] = useState(1);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -98,6 +101,15 @@ const Credits = () => {
   const totalBalance = unsettledBalances.reduce((sum, b) => sum + (Number(b.display_balance) || 0), 0);
   const totalUnsettledTransactions = unsettledBalances.length;
   const totalSettledTransactions = transactions.length;
+
+  useEffect(() => {
+    setBalancesPage(1);
+    setTransactionsPage(1);
+  }, [activeTab, balances.length, transactions.length]);
+
+  const pageSize = 10;
+  const pagedBalances = unsettledBalances.slice((balancesPage - 1) * pageSize, balancesPage * pageSize);
+  const pagedTransactions = transactions.slice((transactionsPage - 1) * pageSize, transactionsPage * pageSize);
 
   const formatCurrency = (value) => {
     const n = Number(value || 0);
@@ -262,6 +274,7 @@ const Credits = () => {
                           <p className="mt-1 text-sm text-gray-600">All balances are settled</p>
                         </div>
                       ) : (
+                        <>
                         <div className="overflow-x-auto overflow-hidden">
                           <table className="w-full divide-y divide-gray-200" style={{ minWidth: '900px' }}>
                             <thead className="bg-gray-50">
@@ -271,11 +284,11 @@ const Credits = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Role</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Credits</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 tracking-wider">Balance</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider hidden md:table-cell">Last Updated</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">Last Updated</th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                              {unsettledBalances.map((balance) => (
+                              {pagedBalances.map((balance) => (
                                 <tr key={balance.credit_id} className="hover:bg-gray-50">
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm font-medium text-gray-900">{balance.user_name || 'N/A'}</div>
@@ -296,7 +309,7 @@ const Credits = () => {
                                   <td className="px-6 py-4 whitespace-nowrap text-right">
                                     <div className="text-sm font-bold text-gray-900">{formatCurrency(Number(balance.display_balance) || 0)}</div>
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                                  <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm text-gray-500">{formatDate(balance.last_updated)}</div>
                                   </td>
                                 </tr>
@@ -304,6 +317,15 @@ const Credits = () => {
                             </tbody>
                           </table>
                         </div>
+                        <div className="mt-3">
+                          <Pagination
+                            totalItems={unsettledBalances.length}
+                            pageSize={pageSize}
+                            currentPage={balancesPage}
+                            onPageChange={setBalancesPage}
+                          />
+                        </div>
+                        </>
                       )}
                     </div>
                   ) : (
@@ -317,6 +339,7 @@ const Credits = () => {
                           <p className="mt-1 text-sm text-gray-600">No settled payment records available yet</p>
                         </div>
                       ) : (
+                        <>
                         <div className="overflow-x-auto overflow-hidden">
                           <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1100px' }}>
                             <thead className="bg-gray-50">
@@ -330,7 +353,7 @@ const Credits = () => {
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                              {transactions.map((transaction) => (
+                              {pagedTransactions.map((transaction) => (
                                 <tr key={transaction.transaction_id} className="hover:bg-gray-50">
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm text-gray-900">{formatDate(transaction.settled_at)}</div>
@@ -362,6 +385,15 @@ const Credits = () => {
                             </tbody>
                           </table>
                         </div>
+                        <div className="mt-3">
+                          <Pagination
+                            totalItems={transactions.length}
+                            pageSize={pageSize}
+                            currentPage={transactionsPage}
+                            onPageChange={setTransactionsPage}
+                          />
+                        </div>
+                        </>
                       )}
                     </div>
                   )}

@@ -578,10 +578,16 @@ const Header = ({ user }) => {
               </button>
 
               {isNotifOpen && (
-                <div className="absolute right-0 mt-2 w-[min(92vw,360px)] bg-white rounded-lg shadow-xl z-[120] border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-3">
+                <div
+                  className="
+                  z-[120] flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl
+                  fixed left-3 right-3 top-[calc(4rem+0.5rem)] max-h-[min(calc(100dvh-5.5rem),560px)]
+                  lg:absolute lg:inset-x-auto lg:left-auto lg:right-0 lg:top-full lg:mt-2 lg:max-h-none lg:w-[min(92vw,360px)] lg:flex-none
+                "
+                >
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
                     <p className="text-sm font-semibold text-gray-900">Notifications</p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-3">
                       <p className="text-xs text-gray-500">{unreadCount} unread</p>
                       <button
                         type="button"
@@ -593,7 +599,7 @@ const Header = ({ user }) => {
                       </button>
                     </div>
                   </div>
-                  <div className="max-h-[420px] overflow-y-auto">
+                  <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-[420px]">
                     {isNotifLoading ? (
                       <div className="px-4 py-6 text-sm text-gray-600">Loading…</div>
                     ) : notifications.length === 0 ? (

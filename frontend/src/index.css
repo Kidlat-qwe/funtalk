@@ -28,30 +28,6 @@
     height: 0;
     display: none; /* Chrome, Safari, Opera */
   }
-
-  /* Compact, responsive tables across all pages */
-  main table {
-    @apply w-full table-fixed;
-    min-width: 0 !important;
-  }
-
-  main th {
-    @apply px-3 py-2 text-xs;
-  }
-
-  main td {
-    @apply px-3 py-2 text-sm align-top;
-    white-space: normal !important;
-    word-break: break-word;
-  }
-
-  main .overflow-x-auto {
-    overflow-x: hidden !important;
-  }
-
-  main [style*='min-width'] {
-    min-width: 0 !important;
-  }
 }
 
 @layer components {
@@ -136,5 +112,186 @@
 
   .error-message {
     @apply text-red-600 text-xs sm:text-sm mt-1;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Desktop-first: ≥1024px — preserve original main/table layout (unchanged)   */
+/* -------------------------------------------------------------------------- */
+@media (min-width: 1024px) {
+  main table {
+    @apply w-full table-fixed;
+    min-width: 0 !important;
+  }
+
+  main th {
+    @apply px-3 py-2 text-xs;
+  }
+
+  main td {
+    @apply px-3 py-2 text-sm align-top;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+
+  main .overflow-x-auto {
+    overflow-x: hidden !important;
+  }
+
+  main [style*='min-width'] {
+    min-width: 0 !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tablet & phone: max-width 1023px — responsive without changing ≥1024px     */
+/* -------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #root {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Flex main must shrink so wide content does not push the viewport */
+  .min-h-screen > .flex > main.flex-1,
+  .min-h-screen .flex > main.flex-1 {
+    min-width: 0;
+  }
+
+  /* Touch-friendly form controls; 16px reduces iOS input zoom */
+  .input-field,
+  input.input-field,
+  select.input-field,
+  textarea.input-field {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  textarea.input-field {
+    min-height: 6.5rem;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    min-height: 2.75rem;
+  }
+
+  .label {
+    @apply text-sm;
+  }
+
+  .page-title {
+    @apply text-xl;
+  }
+
+  .page-subtitle {
+    @apply text-sm;
+  }
+
+  /* Wide data tables: horizontal scroll inside the card, not the page */
+  main .overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Reveal a thin horizontal scrollbar in table regions (global * hides scrollbars) */
+  main .overflow-x-auto {
+    scrollbar-width: thin;
+  }
+
+  main .overflow-x-auto::-webkit-scrollbar {
+    display: block;
+    height: 5px;
+  }
+
+  main .overflow-x-auto::-webkit-scrollbar-thumb {
+    background: rgba(90, 57, 49, 0.25);
+    border-radius: 4px;
+  }
+
+  /* Only widen scroll-region tables so horizontal swipe works; leave table-fixed layouts intact */
+  main .overflow-x-auto table {
+    width: max-content;
+    min-width: 100%;
+    max-width: none;
+    table-layout: auto;
+  }
+
+  /* Media in main should not overflow the viewport */
+  main img,
+  main video,
+  main canvas {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /*
+   * Auth pages only (Login/Signup root uses flex items-center justify-center).
+   * Never use `.min-h-screen img` — dashboards wrap <Header> in `.min-h-screen`, and forcing
+   * height:auto on header logos overrides Tailwind `h-10`/`h-12` (logo balloons on mobile).
+   */
+  .min-h-screen.flex.items-center.justify-center img {
+    max-width: min(56vw, 8.5rem);
+    max-height: 2.75rem;
+    width: auto;
+    object-fit: contain;
+  }
+
+  /* Long sidebar menus: scroll inside panel on short phones */
+  aside nav {
+    max-height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Sticky header: respect notches / home indicator */
+  header.sticky {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /*
+   * Mobile: some pages end up scrolling a nested container, which breaks `position: sticky`.
+   * Keep desktop behavior unchanged by only forcing a fixed header on small screens.
+   */
+  .min-h-screen > header.sticky {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  /* Offset page content so it doesn't sit under the fixed header (Header is h-16 = 4rem). */
+  .min-h-screen > header.sticky + .flex {
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+  }
+
+  /* Floating sidebar toggle (all dashboard pages) */
+  button[aria-label='Toggle sidebar'].fixed.bottom-6.right-6 {
+    bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    right: calc(1.5rem + env(safe-area-inset-right, 0px));
+  }
+
+  /* Modals & global dialogs: stay in view, scroll when tall */
+  #root .fixed.inset-0.flex.items-center.justify-center {
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    align-items: center;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  [role='alertdialog'],
+  [role='dialog'] {
+    max-height: min(90dvh, calc(100dvh - 1.5rem));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

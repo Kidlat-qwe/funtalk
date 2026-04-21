@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '@/config/api.js';
+import ResponsiveSelect from '../components/ResponsiveSelect';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -171,7 +172,7 @@ const Signup = () => {
               <label htmlFor="userType" className="label">
                 Account Type
               </label>
-              <select
+              <ResponsiveSelect
                 id="userType"
                 name="userType"
                 value={formData.userType}
@@ -182,7 +183,7 @@ const Signup = () => {
                 <option value="superadmin">Super Admin</option>
                 <option value="school">School</option>
                 <option value="teacher">Teacher</option>
-              </select>
+              </ResponsiveSelect>
               {errors.userType && (
                 <p className="error-message">{errors.userType}</p>
               )}
