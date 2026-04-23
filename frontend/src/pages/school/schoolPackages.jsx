@@ -136,13 +136,13 @@ const SchoolPackages = () => {
   };
 
   const formatPrice = (price) => {
-    if (!price) return '$0.00';
-    return `$${parseFloat(price).toFixed(2)}`;
+    if (!price) return 'NT$0.00';
+    return `${'NT$'}${parseFloat(price).toFixed(2)}`;
   };
 
   const calculatePricePerCredit = (price, credits) => {
-    if (!credits || credits === 0) return '$0.00';
-    return `$${(parseFloat(price) / credits).toFixed(2)}`;
+    if (!credits || credits === 0) return 'NT$0.00';
+    return `${'NT$'}${(parseFloat(price) / credits).toFixed(2)}`;
   };
 
   if (isLoading) {

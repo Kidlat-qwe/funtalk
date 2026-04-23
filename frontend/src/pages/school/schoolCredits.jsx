@@ -148,7 +148,7 @@ const SchoolCredits = () => {
     if (n == null || n === '') return '—';
     const v = parseFloat(n);
     if (Number.isNaN(v)) return '—';
-    return `$${v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+    return `${'NT$'}${v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   };
 
   const formatTransactionType = (type) => {

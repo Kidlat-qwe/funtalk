@@ -96,8 +96,8 @@ const PaymentLogs = () => {
   };
 
   const formatMoney = (amount) => {
-    if (amount == null) return '$0.00';
-    return `$${parseFloat(amount).toFixed(2)}`;
+    if (amount == null) return 'NT$0.00';
+    return `${'NT$'}${parseFloat(amount).toFixed(2)}`;
   };
 
   const getAttachmentHref = (url) => {

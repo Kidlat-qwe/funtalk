@@ -103,10 +103,10 @@ const SuperAdminDashboard = () => {
   const formatNumber = (value) =>
     new Intl.NumberFormat('en-US').format(Number.isFinite(value) ? value : 0);
 
-  const formatCurrency = (value) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-      Number.isFinite(value) ? value : 0
-    );
+  const formatCurrency = (value) => {
+    const n = Number.isFinite(value) ? value : 0;
+    return `${'NT$'}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   const users = dashboardData.users;
   const teachers = dashboardData.teachers;

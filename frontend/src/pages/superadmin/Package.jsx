@@ -310,8 +310,8 @@ const Package = () => {
 
   // Format price for display
   const formatPrice = (price) => {
-    if (!price) return '$0.00';
-    return `$${parseFloat(price).toFixed(2)}`;
+    if (!price) return 'NT$0.00';
+    return `${'NT$'}${parseFloat(price).toFixed(2)}`;
   };
 
   const searchQuery = nameSearch.trim().toLowerCase();
@@ -489,7 +489,7 @@ const Package = () => {
                             </span>
                             {pkg.credits_value && pkg.price && (
                               <span className="text-xs sm:text-sm text-gray-500">
-                                (${(parseFloat(pkg.price) / pkg.credits_value).toFixed(2)}/credit)
+                                {`(NT${'$'}${(parseFloat(pkg.price) / pkg.credits_value).toFixed(2)}/credit)`}
                               </span>
                             )}
                           </div>

@@ -204,8 +204,8 @@ const Invoices = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
-    if (!amount) return '$0.00';
-    return `$${parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+    if (!amount) return 'NT$0.00';
+    return `${'NT$'}${parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   };
 
   const getReceiptHref = (receiptUrl) => {
