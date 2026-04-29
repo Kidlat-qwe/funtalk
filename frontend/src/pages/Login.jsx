@@ -1,8 +1,51 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { API_BASE_URL } from '@/config/api.js';
+
+/** Stored per browser (localStorage); survives reload. Value is epoch ms when login attempts are allowed again. */
+const LOGIN_LOCKOUT_STORAGE_KEY = 'funtalk_login_lockout_until';
+const LOGIN_FAIL_COUNT_KEY = 'funtalk_login_fail_count';
+const LOGIN_LOCKOUT_MS = 60_000;
+const MAX_FAILED_ATTEMPTS = 5;
+
+const readLockoutUntil = () => {
+  const raw = localStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY);
+  if (!raw) return 0;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n)) {
+    localStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+    return 0;
+  }
+  if (n <= Date.now()) {
+    localStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+    return 0;
+  }
+  return n;
+};
+
+const getFailCount = () => {
+  const raw = localStorage.getItem(LOGIN_FAIL_COUNT_KEY);
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
+
+const setFailCount = (n) => {
+  if (n <= 0) localStorage.removeItem(LOGIN_FAIL_COUNT_KEY);
+  else localStorage.setItem(LOGIN_FAIL_COUNT_KEY, String(n));
+};
+
+/** Clears lockout timer and failed-attempt counter (call after successful login or when lockout expires). */
+const clearLoginThrottleState = () => {
+  localStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY);
+  localStorage.removeItem(LOGIN_FAIL_COUNT_KEY);
+};
+
+const countsAsWrongCredentials = (code) =>
+  code === 'auth/invalid-credential' ||
+  code === 'auth/wrong-password' ||
+  code === 'auth/user-not-found';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -12,6 +55,10 @@ const Login = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  /** Epoch ms when lockout ends; 0 = no lockout (initialized from localStorage) */
+  const [lockoutUntil, setLockoutUntil] = useState(() => readLockoutUntil());
+  /** Re-render while locked so countdown stays accurate */
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [showPassword, setShowPassword] = useState(false);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -20,6 +67,48 @@ const Login = () => {
     error: '',
     success: '',
   });
+
+  const isLoginLocked = lockoutUntil > nowTick;
+  const lockoutSecondsLeft = isLoginLocked
+    ? Math.max(0, Math.ceil((lockoutUntil - nowTick) / 1000))
+    : 0;
+
+  useEffect(() => {
+    const u = readLockoutUntil();
+    setLockoutUntil(u);
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (
+        e.storageArea === localStorage &&
+        (e.key === LOGIN_LOCKOUT_STORAGE_KEY ||
+          e.key === LOGIN_FAIL_COUNT_KEY ||
+          e.key === null)
+      ) {
+        setLockoutUntil(readLockoutUntil());
+        setNowTick(Date.now());
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  useEffect(() => {
+    if (!lockoutUntil) return;
+    const tick = () => {
+      const now = Date.now();
+      setNowTick(now);
+      if (now >= lockoutUntil) {
+        clearLoginThrottleState();
+        setLockoutUntil(0);
+        setFailCount(0);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockoutUntil]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -62,6 +151,15 @@ const Login = () => {
       return;
     }
 
+    const activeUntil = readLockoutUntil();
+    if (activeUntil > Date.now()) {
+      setLockoutUntil(activeUntil);
+      setErrors({
+        submit: `Too many failed attempts. Wait ${Math.ceil((activeUntil - Date.now()) / 1000)} seconds before trying again.`,
+      });
+      return;
+    }
+
     setIsLoading(true);
     setErrors({}); // Clear previous errors
 
@@ -80,12 +178,14 @@ const Login = () => {
         // Get Firebase ID token
         firebaseToken = await userCredential.user.getIdToken();
       } catch (firebaseError) {
-        // Handle Firebase authentication errors
         let errorMessage = 'Invalid email or password. Please try again.';
-        
+
         if (firebaseError.code === 'auth/user-not-found') {
           errorMessage = 'No account found with this email address.';
-        } else if (firebaseError.code === 'auth/wrong-password') {
+        } else if (
+          firebaseError.code === 'auth/wrong-password' ||
+          firebaseError.code === 'auth/invalid-credential'
+        ) {
           errorMessage = 'Incorrect password. Please try again.';
         } else if (firebaseError.code === 'auth/invalid-email') {
           errorMessage = 'Invalid email address.';
@@ -94,8 +194,27 @@ const Login = () => {
         } else if (firebaseError.code === 'auth/too-many-requests') {
           errorMessage = 'Too many failed login attempts. Please try again later.';
         }
-        
-        setErrors({ submit: errorMessage });
+
+        if (countsAsWrongCredentials(firebaseError.code)) {
+          const next = getFailCount() + 1;
+          if (next >= MAX_FAILED_ATTEMPTS) {
+            const until = Date.now() + LOGIN_LOCKOUT_MS;
+            localStorage.setItem(LOGIN_LOCKOUT_STORAGE_KEY, String(until));
+            setLockoutUntil(until);
+            setNowTick(Date.now());
+            setFailCount(0);
+            setErrors({
+              submit:
+                'Too many failed login attempts. This device is locked for 60 seconds. You can try again when the timer ends.',
+            });
+          } else {
+            setFailCount(next);
+            setErrors({ submit: errorMessage });
+          }
+        } else {
+          setErrors({ submit: errorMessage });
+        }
+
         setIsLoading(false);
         return;
       }
@@ -130,6 +249,7 @@ const Login = () => {
 
       // Success - store token and redirect
       if (data.success && data.data.token) {
+        clearLoginThrottleState();
         localStorage.setItem('token', data.data.token);
         localStorage.setItem('user', JSON.stringify(data.data.user));
 
@@ -233,6 +353,19 @@ const Login = () => {
 
         {/* Login Form */}
         <div className="card card-padded shadow-lg">
+          {isLoginLocked && (
+            <div
+              className="mb-4 sm:mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 sm:px-4 sm:py-3 text-center"
+              role="status"
+              aria-live="polite"
+            >
+              <p className="text-xs sm:text-sm font-medium text-amber-900">
+                Too many failed sign-in attempts. This device is locked. Try again in{' '}
+                <span className="tabular-nums font-semibold">{lockoutSecondsLeft}</span> second
+                {lockoutSecondsLeft === 1 ? '' : 's'}.
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div>
@@ -248,7 +381,7 @@ const Login = () => {
                 onChange={handleChange}
                 className={`input-field ${errors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
                 placeholder="Enter your email"
-                disabled={isLoading}
+                disabled={isLoading || isLoginLocked}
               />
               {errors.email && (
                 <p className="error-message">{errors.email}</p>
@@ -270,13 +403,13 @@ const Login = () => {
                   onChange={handleChange}
                   className={`input-field pr-10 ${errors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
                   placeholder="Enter your password"
-                  disabled={isLoading}
+                  disabled={isLoading || isLoginLocked}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
-                  disabled={isLoading}
+                  disabled={isLoading || isLoginLocked}
                 >
                   {showPassword ? (
                     <svg
@@ -342,9 +475,11 @@ const Login = () => {
             <button
               type="submit"
               className="btn-primary"
-              disabled={isLoading}
+              disabled={isLoading || isLoginLocked}
             >
-              {isLoading ? (
+              {isLoginLocked ? (
+                `Wait ${lockoutSecondsLeft}s`
+              ) : isLoading ? (
                 <span className="flex items-center justify-center">
                   <svg
                     className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
