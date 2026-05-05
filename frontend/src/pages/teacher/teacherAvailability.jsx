@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatAppointmentStatus } from '@/utils/displayLabels.js';
 
 const toYyyyMmDd = (date) => {
   const y = date.getFullYear();
@@ -409,18 +410,6 @@ const TeacherAvailability = () => {
     const period = hours >= 12 ? 'PM' : 'AM';
     const h12 = hours % 12 || 12;
     return `${h12}:${String(minutes).padStart(2, '0')} ${period}`;
-  };
-
-  const formatStatus = (status) => {
-    const map = {
-      pending: 'Pending',
-      approved: 'Approved',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-      no_show: 'No Show',
-    };
-    const key = String(status || '').toLowerCase();
-    return map[key] || 'Unknown';
   };
 
   const getStatusBadgeClass = (status) => {
@@ -1126,7 +1115,7 @@ const TeacherAvailability = () => {
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900">Status:</span>
                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadgeClass(selectedMeeting.status)}`}>
-                    {formatStatus(selectedMeeting.status)}
+                    {formatAppointmentStatus(selectedMeeting.status)}
                   </span>
                 </div>
                 {selectedMeeting.meeting_link && (

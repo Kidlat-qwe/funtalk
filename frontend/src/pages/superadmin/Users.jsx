@@ -6,6 +6,7 @@ import Sidebar from '../../components/Sidebar';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatBillingTypeLabel, formatUserRoleLabel } from '@/utils/displayLabels.js';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 
 const todayYyyyMmDd = () => new Date().toISOString().slice(0, 10);
@@ -658,12 +659,6 @@ const Users = () => {
   const pageSize = 10;
   const pagedUsers = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
 
-  // Format user type for display
-  const formatUserType = (userType) => {
-    if (!userType) return 'N/A';
-    return userType.charAt(0).toUpperCase() + userType.slice(1);
-  };
-
   const getRoleBadgeClass = (userType) => {
     const role = String(userType || '').toLowerCase();
     if (role === 'superadmin') return 'bg-purple-100 text-purple-800';
@@ -722,14 +717,7 @@ const Users = () => {
   // Get billing type from user data
   const getBillingType = (userItem) => {
     if (!userItem.billing_type) return '-';
-    
-    // Format billing type for display
-    const billingTypeMap = {
-      'patty': 'Patty',
-      'explore': 'Explore',
-    };
-    
-    return billingTypeMap[userItem.billing_type.toLowerCase()] || userItem.billing_type;
+    return formatBillingTypeLabel(userItem.billing_type);
   };
 
   const overdueCount = Object.values(subscriptionStatusByUserId).filter((s) => s.is_overdue).length;
@@ -1012,7 +1000,7 @@ const Users = () => {
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(userItem.user_type)}`}>
-                                {formatUserType(userItem.user_type)}
+                                {formatUserRoleLabel(userItem.user_type)}
                               </span>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">

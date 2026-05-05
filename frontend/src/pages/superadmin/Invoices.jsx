@@ -7,6 +7,7 @@ import { API_BASE_URL } from '@/config/api.js';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
+import { formatBillingTypeLabel, formatInvoiceStatus } from '@/utils/displayLabels.js';
 
 const Invoices = () => {
   const navigate = useNavigate();
@@ -216,17 +217,6 @@ const Invoices = () => {
     return `${API_BASE_URL.replace('/api', '')}${receiptUrl}`;
   };
   const isPdfUrl = (url) => /\.pdf($|\?)/i.test(String(url || ''));
-
-  // Format status
-  const formatStatus = (status) => {
-    const statuses = {
-      paid: 'Paid',
-      pending: 'Pending',
-      overdue: 'Overdue',
-      cancelled: 'Cancelled',
-    };
-    return statuses[status] || status;
-  };
 
   // Get status color
   const getStatusColor = (status) => {
@@ -447,7 +437,9 @@ const Invoices = () => {
                             <td className="px-4 py-4 align-top">
                               <div className="text-sm text-gray-900">{invoice.package_name || '-'}</div>
                               {invoice.billing_type && (
-                                <div className="text-xs text-gray-500">{invoice.billing_type}</div>
+                                <div className="text-xs text-gray-500">
+                                  {formatBillingTypeLabel(invoice.billing_type)}
+                                </div>
                               )}
                             </td>
                             <td className="px-4 py-4 align-top text-right">
@@ -455,7 +447,7 @@ const Invoices = () => {
                             </td>
                             <td className="px-4 py-4 align-top">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(invoice.status)}`}>
-                                {formatStatus(invoice.status)}
+                                {formatInvoiceStatus(invoice.status)}
                               </span>
                             </td>
                             <td className="px-4 py-4 align-top">
@@ -592,7 +584,7 @@ const Invoices = () => {
                         </div>
                         <div>
                           <p className="text-gray-500">Status</p>
-                          <p className="font-medium text-gray-900">{formatStatus(payModalInvoice.status)}</p>
+                          <p className="font-medium text-gray-900">{formatInvoiceStatus(payModalInvoice.status)}</p>
                         </div>
                         <div>
                           <p className="text-gray-500">Customer</p>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatSettlementTypeLabel } from '@/utils/displayLabels.js';
 import Pagination from '../../components/Pagination.jsx';
 
 const Credits = () => {
@@ -127,15 +128,6 @@ const Credits = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  // Format settled transaction type
-  const formatSettlementType = (type) => {
-    const types = {
-      full_payment_paid: 'Full Payment',
-      installment_fully_paid: 'Installment Completed',
-    };
-    return types[type] || type;
   };
 
   // Get settled transaction type color
@@ -364,7 +356,7 @@ const Credits = () => {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap hidden lg:table-cell">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getSettlementTypeColor(transaction.settlement_type)}`}>
-                                      {formatSettlementType(transaction.settlement_type)}
+                                      {formatSettlementTypeLabel(transaction.settlement_type)}
                                     </span>
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-right">

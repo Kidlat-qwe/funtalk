@@ -8,6 +8,11 @@ import { BOOKING_TIME_OPTIONS } from '../../constants/bookingTimeOptions.js';
 import { API_BASE_URL } from '@/config/api.js';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 import Pagination from '../../components/Pagination.jsx';
+import {
+  formatAppointmentStatus,
+  formatClassTypeLabel,
+  formatTeacherRequirementLabel,
+} from '@/utils/displayLabels.js';
 
 const DURATION_OPTIONS = [
   { value: '25', label: '25 mins (1 credit)', credits: 1 },
@@ -41,12 +46,6 @@ const TEACHER_REQUIREMENT_OPTIONS = [
   { value: 'intro_audio', label: 'Intro Audio' },
   { value: 'intro_text', label: 'Intro Text' },
 ];
-
-const teacherRequirementLabel = (value) => {
-  const v = String(value || '').trim();
-  const found = TEACHER_REQUIREMENT_OPTIONS.find((o) => o.value === v);
-  return found ? found.label : v;
-};
 
 /** Parses "Teacher Requirements: a, b" line from appointment additional_notes (school booking metadata). */
 const parseTeacherRequirementsFromNotes = (additionalNotes) => {
@@ -651,18 +650,6 @@ const SchoolBookings = () => {
     });
   };
 
-  // Format status
-  const formatStatus = (status) => {
-    const statuses = {
-      pending: 'Pending',
-      approved: 'Approved',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-      no_show: 'No Show',
-    };
-    return statuses[status] || status;
-  };
-
   // Get status color
   const getStatusColor = (status) => {
     const colors = {
@@ -859,7 +846,7 @@ const SchoolBookings = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(apt.status)}`}>
-                                {formatStatus(apt.status)}
+                                {formatAppointmentStatus(apt.status)}
                               </span>
                             </td>
                             <td className="sticky right-0 z-[1] bg-white px-6 py-4 whitespace-nowrap text-right text-sm shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
@@ -1003,7 +990,7 @@ const SchoolBookings = () => {
                     Teacher requirements
                   </h2>
                   <p className="mt-1 text-xs sm:text-sm text-gray-600">
-                    Requested for this class when you booked ({formatStatus(requirementsViewAppointment.status)}).
+                    Requested for this class when you booked ({formatAppointmentStatus(requirementsViewAppointment.status)}).
                   </p>
                 </div>
                 <button
@@ -1031,7 +1018,7 @@ const SchoolBookings = () => {
                       key={`${requirementsViewAppointment.appointment_id}-${req}-${idx}`}
                       reqKey={req}
                       appointment={requirementsViewAppointment}
-                      teacherRequirementLabel={teacherRequirementLabel}
+                      teacherRequirementLabel={formatTeacherRequirementLabel}
                     />
                   ))}
                 </div>
@@ -1121,7 +1108,7 @@ const SchoolBookings = () => {
                   </div>
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
                     <p className="text-xs font-medium text-gray-500">Status</p>
-                    <p className="mt-1 text-sm font-semibold text-gray-900">{formatStatus(detailsViewAppointment.status)}</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{formatAppointmentStatus(detailsViewAppointment.status)}</p>
                   </div>
                 </div>
 
@@ -1130,7 +1117,9 @@ const SchoolBookings = () => {
                   <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <p className="text-xs text-gray-500">Class type</p>
-                      <p className="text-sm text-gray-900">{detailsViewAppointment.class_type || '—'}</p>
+                      <p className="text-sm text-gray-900">
+                        {formatClassTypeLabel(detailsViewAppointment.class_type)}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Material</p>
@@ -1162,7 +1151,7 @@ const SchoolBookings = () => {
                           key={req}
                           className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-100"
                         >
-                          {teacherRequirementLabel(req)}
+                          {formatTeacherRequirementLabel(req)}
                         </span>
                       ))}
                     </div>

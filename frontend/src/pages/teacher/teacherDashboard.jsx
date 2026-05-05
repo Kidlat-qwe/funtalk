@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatAppointmentStatus } from '@/utils/displayLabels.js';
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -109,18 +110,6 @@ const TeacherDashboard = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  // Format status
-  const formatStatus = (status) => {
-    const statuses = {
-      pending: 'Pending',
-      approved: 'Approved',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-      no_show: 'No Show',
-    };
-    return statuses[status] || status;
   };
 
   // Get status color
@@ -275,7 +264,7 @@ const TeacherDashboard = () => {
                             </div>
                             <div className="flex items-center gap-2 ml-4">
                               <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
-                                {formatStatus(appointment.status)}
+                                {formatAppointmentStatus(appointment.status)}
                               </span>
                               {appointment.meeting_link && appointment.status === 'approved' && (
                                 <Link
@@ -327,7 +316,7 @@ const TeacherDashboard = () => {
                               </p>
                             </div>
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
-                              {formatStatus(appointment.status)}
+                              {formatAppointmentStatus(appointment.status)}
                             </span>
                           </div>
                         </div>
@@ -370,7 +359,7 @@ const TeacherDashboard = () => {
                               </p>
                             </div>
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
-                              {formatStatus(appointment.status)}
+                              {formatAppointmentStatus(appointment.status)}
                             </span>
                           </div>
                         </div>

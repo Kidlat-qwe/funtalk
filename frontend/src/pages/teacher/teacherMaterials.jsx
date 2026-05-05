@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatMaterialTypeLabel } from '@/utils/displayLabels.js';
 
 const TeacherMaterials = () => {
   const navigate = useNavigate();
@@ -390,7 +391,7 @@ const TeacherMaterials = () => {
                           <option value="">All Types</option>
                           {materialTypes.map((type) => (
                             <option key={type} value={type}>
-                              {type}
+                              {formatMaterialTypeLabel(type)}
                             </option>
                           ))}
                         </select>
@@ -411,7 +412,7 @@ const TeacherMaterials = () => {
                               </h3>
                               {material.material_type && (
                                 <span className="mt-1 inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                  {material.material_type}
+                                  {formatMaterialTypeLabel(material.material_type)}
                                 </span>
                               )}
                             </div>

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatAppointmentStatus, formatCreditTransactionType } from '@/utils/displayLabels.js';
 
 const DURATION_MINUTES_TO_CREDITS = { 25: 1, 50: 2, 75: 3, 100: 4 };
 
@@ -160,18 +161,6 @@ const SchoolDashboard = () => {
     });
   };
 
-  // Format status
-  const formatStatus = (status) => {
-    const statuses = {
-      pending: 'Pending',
-      approved: 'Approved',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-      no_show: 'No Show',
-    };
-    return statuses[status] || status;
-  };
-
   // Get status color
   const getStatusColor = (status) => {
     const colors = {
@@ -192,16 +181,6 @@ const SchoolDashboard = () => {
     } else {
       alert('Meeting link is not available yet. It appears after the booking is approved.');
     }
-  };
-
-  // Format transaction type
-  const formatTransactionType = (type) => {
-    const types = {
-      purchase: 'Purchase',
-      deduction: 'Deduction',
-      adjustment: 'Adjustment',
-    };
-    return types[type] || type;
   };
 
   if (isLoading) {
@@ -347,7 +326,7 @@ const SchoolDashboard = () => {
                                         {apt.student_name || 'N/A'}
                                       </h3>
                                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(apt.status)}`}>
-                                        {formatStatus(apt.status)}
+                                        {formatAppointmentStatus(apt.status)}
                                       </span>
                                     </div>
                                     <p className="text-xs sm:text-sm text-gray-600">
@@ -395,7 +374,7 @@ const SchoolDashboard = () => {
                               <div key={transaction.transaction_id} className="flex items-center justify-between border-b border-gray-200 pb-3 last:border-0 last:pb-0">
                                 <div>
                                   <p className="text-sm font-medium text-gray-900">
-                                    {formatTransactionType(transaction.transaction_type)}
+                                    {formatCreditTransactionType(transaction.transaction_type)}
                                   </p>
                                   <p className="text-xs text-gray-500 mt-1">
                                     {new Date(transaction.created_at).toLocaleDateString('en-US', {

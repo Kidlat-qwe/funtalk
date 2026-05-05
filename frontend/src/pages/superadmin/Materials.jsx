@@ -7,6 +7,7 @@ import { API_BASE_URL } from '@/config/api.js';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
+import { formatMaterialTypeLabel } from '@/utils/displayLabels.js';
 
 const MATERIAL_TYPE_OPTIONS = [
   'Lesson Plan',
@@ -444,7 +445,7 @@ const Materials = () => {
                     <option value="">All types</option>
                     {materialTypes.map((type) => (
                       <option key={type} value={type}>
-                        {type}
+                        {formatMaterialTypeLabel(type)}
                       </option>
                     ))}
                   </ResponsiveSelect>
@@ -512,7 +513,7 @@ const Materials = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               {material.material_type ? (
                                 <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                  {material.material_type}
+                                  {formatMaterialTypeLabel(material.material_type)}
                                 </span>
                               ) : (
                                 <span className="text-sm text-gray-500">-</span>

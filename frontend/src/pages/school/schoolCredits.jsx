@@ -5,6 +5,7 @@ import Sidebar from '../../components/Sidebar';
 import ResponsiveSelect from '../../components/ResponsiveSelect.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatCreditTransactionType } from '@/utils/displayLabels.js';
 
 const SchoolCredits = () => {
   const navigate = useNavigate();
@@ -149,15 +150,6 @@ const SchoolCredits = () => {
     const v = parseFloat(n);
     if (Number.isNaN(v)) return '—';
     return `${'NT$'}${v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-  };
-
-  const formatTransactionType = (type) => {
-    const types = {
-      purchase: 'Purchase',
-      deduction: 'Deduction',
-      adjustment: 'Adjustment',
-    };
-    return types[type] || type;
   };
 
   useEffect(() => {
@@ -387,7 +379,7 @@ const SchoolCredits = () => {
                                     ? 'bg-red-100 text-red-800'
                                     : 'bg-blue-100 text-blue-800'
                                 }`}>
-                                  {formatTransactionType(transaction.transaction_type)}
+                                  {formatCreditTransactionType(transaction.transaction_type)}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">

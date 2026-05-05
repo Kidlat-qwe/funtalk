@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatAppointmentStatus, formatClassTypeLabel } from '@/utils/displayLabels.js';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 
@@ -124,18 +125,6 @@ const TeacherAppointments = () => {
     });
   };
 
-  // Format status
-  const formatStatus = (status) => {
-    const statuses = {
-      pending: 'Pending',
-      approved: 'Approved',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-      no_show: 'No Show',
-    };
-    return statuses[status] || status;
-  };
-
   // Get status color
   const getStatusColor = (status) => {
     const colors = {
@@ -186,7 +175,7 @@ const TeacherAppointments = () => {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        alert(`Appointment marked as ${formatStatus(newStatus)}`);
+        alert(`Appointment marked as ${formatAppointmentStatus(newStatus)}`);
         fetchAppointments();
         setIsDetailModalOpen(false);
       } else {
@@ -368,7 +357,7 @@ const TeacherAppointments = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(appointment.status)}`}>
-                                {formatStatus(appointment.status)}
+                                {formatAppointmentStatus(appointment.status)}
                               </span>
                             </td>
                             <td className="sticky right-0 z-[1] bg-white px-6 py-4 whitespace-nowrap text-right text-sm font-medium shadow-[-2px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-gray-50">
@@ -471,8 +460,13 @@ const TeacherAppointments = () => {
                       <div><span className="font-medium">Date & Time:</span> {formatDateTime(selectedAppointment.appointment_date, selectedAppointment.appointment_time)}</div>
                       <div><span className="font-medium">School:</span> {selectedAppointment.school_name || 'N/A'}</div>
                       {selectedAppointment.material_name && <div><span className="font-medium">Material:</span> {selectedAppointment.material_name}</div>}
-                      {selectedAppointment.class_type && <div><span className="font-medium">Class Type:</span> {selectedAppointment.class_type}</div>}
-                      <div><span className="font-medium">Status:</span> <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(selectedAppointment.status)}`}>{formatStatus(selectedAppointment.status)}</span></div>
+                      {selectedAppointment.class_type && (
+                        <div>
+                          <span className="font-medium">Class Type:</span>{' '}
+                          {formatClassTypeLabel(selectedAppointment.class_type)}
+                        </div>
+                      )}
+                      <div><span className="font-medium">Status:</span> <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(selectedAppointment.status)}`}>{formatAppointmentStatus(selectedAppointment.status)}</span></div>
                     </div>
                   </div>
                 </div>

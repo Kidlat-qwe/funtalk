@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatAccountStatusLabel, formatGenderLabel } from '@/utils/displayLabels.js';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
@@ -42,6 +43,33 @@ const Teachers = () => {
     url: '',
     title: '',
   });
+
+  /** Teacher CV / documents (single URL in API); resolve relative upload paths against backend origin */
+  const [docsModal, setDocsModal] = useState({
+    isOpen: false,
+    url: '',
+    title: '',
+  });
+
+  const resolveAssetUrl = (url) => {
+    if (!url) return '';
+    const s = String(url).trim();
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+    const origin = API_BASE_URL.startsWith('http')
+      ? API_BASE_URL.replace(/\/api\/?$/, '')
+      : typeof window !== 'undefined'
+        ? window.location.origin
+        : '';
+    if (!origin) return s;
+    return `${origin}${s.startsWith('/') ? '' : '/'}${s}`;
+  };
+
+  const getDocPreviewKind = (url) => {
+    const u = String(url || '').toLowerCase().split('?')[0];
+    if (/\.pdf$/.test(u)) return 'pdf';
+    if (/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(u)) return 'image';
+    return 'other';
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -147,12 +175,6 @@ const Teachers = () => {
 
   const pageSize = 10;
   const pagedTeachers = filteredTeachers.slice((page - 1) * pageSize, page * pageSize);
-
-  // Format gender for display
-  const formatGender = (gender) => {
-    if (!gender) return 'N/A';
-    return gender.charAt(0).toUpperCase() + gender.slice(1);
-  };
 
   // Get user initials for avatar
   const getInitials = (name) => {
@@ -352,6 +374,24 @@ const Teachers = () => {
     });
   };
 
+  const openDocsModal = (teacher) => {
+    const raw = teacher?.docs;
+    const url = resolveAssetUrl(raw);
+    if (!url) {
+      window.alert('Document not available');
+      return;
+    }
+    setDocsModal({
+      isOpen: true,
+      url,
+      title: `${teacher.fullname || 'Teacher'} — CV / documents`,
+    });
+  };
+
+  const closeDocsModal = () => {
+    setDocsModal({ isOpen: false, url: '', title: '' });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -527,7 +567,7 @@ const Teachers = () => {
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                {formatGender(teacher.gender)}
+                                {formatGenderLabel(teacher.gender)}
                               </span>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
@@ -564,17 +604,31 @@ const Teachers = () => {
                                   </svg>
                                 </button>
 
-                                {/* Docs Icon */}
-                                {teacher.docs && (
-                                  <button
-                                    className="p-1 rounded text-green-600 hover:bg-green-50 cursor-pointer"
-                                    title="Documents available"
-                                  >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                  </button>
-                                )}
+                                {/* Docs Icon — CV / uploaded document (single URL from API) */}
+                                <button
+                                  type="button"
+                                  onClick={() => openDocsModal(teacher)}
+                                  disabled={!teacher.docs}
+                                  className={`p-1 rounded ${
+                                    teacher.docs
+                                      ? 'text-green-600 hover:bg-green-50 cursor-pointer'
+                                      : 'text-gray-300 cursor-not-allowed'
+                                  }`}
+                                  title={
+                                    teacher.docs
+                                      ? 'View CV / documents'
+                                      : 'No document uploaded'
+                                  }
+                                  aria-label={
+                                    teacher.docs
+                                      ? `View documents for ${teacher.fullname || 'teacher'}`
+                                      : 'No document available'
+                                  }
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </button>
                               </div>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
@@ -719,11 +773,11 @@ const Teachers = () => {
                             </div>
                             <div>
                               <p className="text-xs uppercase text-gray-500">Gender</p>
-                              <p className="text-sm text-gray-900">{formatGender(selectedTeacher.gender)}</p>
+                              <p className="text-sm text-gray-900">{formatGenderLabel(selectedTeacher.gender)}</p>
                             </div>
                             <div>
                               <p className="text-xs uppercase text-gray-500">Status</p>
-                              <p className="text-sm text-gray-900">{selectedTeacher.status || 'N/A'}</p>
+                              <p className="text-sm text-gray-900">{formatAccountStatusLabel(selectedTeacher.status)}</p>
                             </div>
                             <div>
                               <p className="text-xs uppercase text-gray-500">Phone number</p>
@@ -863,6 +917,92 @@ const Teachers = () => {
                         </button>
                       </div>
                     </form>
+                  </div>
+                </div>,
+                document.body
+              )}
+
+              {/* Teacher documents (CV) modal */}
+              {docsModal.isOpen && createPortal(
+                <div
+                  className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[10000]"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="teacher-docs-modal-title"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) closeDocsModal();
+                  }}
+                >
+                  <div
+                    className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-4 sm:p-5 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                      <h2
+                        id="teacher-docs-modal-title"
+                        className="text-lg sm:text-xl font-bold text-gray-900 pr-2"
+                      >
+                        {docsModal.title}
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={docsModal.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-primary-600 hover:text-primary-700 whitespace-nowrap"
+                        >
+                          Open in new tab
+                        </a>
+                        <button
+                          type="button"
+                          onClick={closeDocsModal}
+                          className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded"
+                          aria-label="Close documents modal"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 bg-gray-50">
+                      {(() => {
+                        const kind = getDocPreviewKind(docsModal.url);
+                        if (kind === 'image') {
+                          return (
+                            <img
+                              src={docsModal.url}
+                              alt=""
+                              className="max-w-full max-h-[75vh] mx-auto object-contain rounded border border-gray-200 bg-white"
+                            />
+                          );
+                        }
+                        if (kind === 'pdf') {
+                          return (
+                            <iframe
+                              title="Teacher document preview"
+                              src={docsModal.url}
+                              className="w-full min-h-[70vh] rounded border border-gray-200 bg-white"
+                            />
+                          );
+                        }
+                        return (
+                          <div className="text-center py-10 px-4 space-y-4">
+                            <p className="text-sm text-gray-600">
+                              Preview is not available for this file type. Use &quot;Open in new tab&quot; to view or download.
+                            </p>
+                            <a
+                              href={docsModal.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+                            >
+                              Open document
+                            </a>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>,
                 document.body

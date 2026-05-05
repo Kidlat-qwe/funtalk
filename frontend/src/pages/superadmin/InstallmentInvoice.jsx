@@ -68,6 +68,7 @@ function buildGenerateFormDefaults(row) {
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatInvoiceStatus } from '@/utils/displayLabels.js';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 import Pagination from '../../components/Pagination.jsx';
 
@@ -493,7 +494,7 @@ const InstallmentInvoice = () => {
                             <span className="text-gray-500">Last invoice</span>
                             <p className="font-medium">
                               {r.last_invoice_number
-                                ? `${r.last_invoice_number} (${r.last_invoice_status || '—'})`
+                                ? `${r.last_invoice_number} (${formatInvoiceStatus(r.last_invoice_status)})`
                                 : '—'}
                             </p>
                           </div>

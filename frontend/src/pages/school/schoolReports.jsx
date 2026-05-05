@@ -5,6 +5,7 @@ import Sidebar from '../../components/Sidebar';
 import ResponsiveSelect from '../../components/ResponsiveSelect.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatAppointmentStatus } from '@/utils/displayLabels.js';
 
 const SchoolReports = () => {
   const navigate = useNavigate();
@@ -163,18 +164,6 @@ const SchoolReports = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  // Format status
-  const formatStatus = (status) => {
-    const statuses = {
-      pending: 'Pending',
-      approved: 'Approved',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-      no_show: 'No Show',
-    };
-    return statuses[status] || status;
   };
 
   // Get status color
@@ -343,7 +332,7 @@ const SchoolReports = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(apt.status)}`}>
-                                {formatStatus(apt.status)}
+                                {formatAppointmentStatus(apt.status)}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500">

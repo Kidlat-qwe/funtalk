@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatMaterialTypeLabel } from '@/utils/displayLabels.js';
 import Pagination from '../../components/Pagination.jsx';
 
 const SchoolMaterials = () => {
@@ -244,7 +245,9 @@ const SchoolMaterials = () => {
                       {pagedMaterials.map((material) => (
                         <tr key={material.material_id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">{material.material_name}</td>
-                          <td className="px-6 py-4 text-sm text-gray-700">{material.material_type || 'student_provided'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {formatMaterialTypeLabel(material.material_type || 'student_provided')}
+                          </td>
                           <td className="px-6 py-4 text-sm">
                             {material.file_url ? (
                               <a

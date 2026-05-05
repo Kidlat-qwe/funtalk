@@ -12,6 +12,7 @@ import {
   normalizeAppointmentTimeHHMM,
   toCalendarYyyyMmDd,
 } from '@/utils/appointmentCalendar.js';
+import { formatAppointmentStatus, formatClassTypeLabel } from '@/utils/displayLabels.js';
 
 const DURATION_OPTIONS = [
   { value: '25', label: '25 mins (1 credit)' },
@@ -354,17 +355,6 @@ const Appointment = () => {
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
-  };
-
-  const formatStatusLabel = (status) => {
-    const labels = {
-      pending: 'Pending',
-      approved: 'Approved',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-      no_show: 'No Show',
-    };
-    return labels[status] || status || '—';
   };
 
   // Handle action menu
@@ -1019,7 +1009,9 @@ const Appointment = () => {
                               <div className="text-xs text-gray-500">{formatTime(appointment.appointment_time)}</div>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{appointment.class_type || '-'}</div>
+                              <div className="text-sm text-gray-900">
+                                {formatClassTypeLabel(appointment.class_type)}
+                              </div>
                             </td>
                             <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{appointment.material_name || '-'}</div>
@@ -1255,9 +1247,7 @@ const Appointment = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 py-2.5 border-b border-gray-100">
                           <span className="text-xs sm:text-sm font-medium text-gray-500">Class type</span>
                           <span className="sm:col-span-2 text-sm text-gray-900">
-                            {detailViewAppointment.class_type
-                              ? String(detailViewAppointment.class_type).replace(/_/g, ' ')
-                              : '—'}
+                            {formatClassTypeLabel(detailViewAppointment.class_type)}
                           </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 py-2.5 border-b border-gray-100">
@@ -1274,7 +1264,7 @@ const Appointment = () => {
                                 detailViewAppointment.status
                               )}`}
                             >
-                              {formatStatusLabel(detailViewAppointment.status)}
+                              {formatAppointmentStatus(detailViewAppointment.status)}
                             </span>
                           </span>
                         </div>
@@ -1750,7 +1740,10 @@ const Appointment = () => {
                       <span className="font-medium text-gray-700">Duration:</span>{' '}
                       {parseDurationMinutesFromNotes(selectedApprovalAppointment.additional_notes)} mins
                     </div>
-                    <div><span className="font-medium text-gray-700">Class Type:</span> {selectedApprovalAppointment.class_type || '-'}</div>
+                    <div>
+                      <span className="font-medium text-gray-700">Class Type:</span>{' '}
+                      {formatClassTypeLabel(selectedApprovalAppointment.class_type)}
+                    </div>
                     <div><span className="font-medium text-gray-700">Material:</span> {selectedApprovalAppointment.material_name || '-'}</div>
                   </div>
                   {selectedApprovalAppointment.additional_notes && (

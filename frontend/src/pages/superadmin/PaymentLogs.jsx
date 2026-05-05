@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import {
+  formatBillingTypeLabel,
+  formatInvoiceStatus,
+  formatPaymentMethodLabel,
+} from '@/utils/displayLabels.js';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 
@@ -133,10 +138,10 @@ const PaymentLogs = () => {
       payment.user_name || '',
       payment.email || '',
       payment.transaction_ref || '',
-      payment.payment_method || '',
+      formatPaymentMethodLabel(payment.payment_method),
       Number(payment.amount_paid || 0).toFixed(2),
-      payment.status || '',
-      payment.billing_type || '',
+      formatInvoiceStatus(payment.status),
+      formatBillingTypeLabel(payment.billing_type),
       formatDate(payment.created_at),
       payment.attachment_url ? getAttachmentHref(payment.attachment_url) : '',
     ]);
@@ -241,7 +246,9 @@ const PaymentLogs = () => {
                             <div className="text-xs text-gray-500 break-all">{p.email || ''}</div>
                           </td>
                           <td className="px-4 py-4 text-sm text-gray-900">{p.transaction_ref || '-'}</td>
-                          <td className="px-4 py-4 text-sm text-gray-900">{p.payment_method || '-'}</td>
+                          <td className="px-4 py-4 text-sm text-gray-900">
+                            {p.payment_method ? formatPaymentMethodLabel(p.payment_method) : '—'}
+                          </td>
                           <td className="px-4 py-4 text-sm font-semibold text-right text-gray-900">{formatMoney(p.amount_paid)}</td>
                           <td className="px-4 py-4 text-sm text-gray-600">{formatDate(p.created_at)}</td>
                           <td className="px-4 py-4 text-sm">
