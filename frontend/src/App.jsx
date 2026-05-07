@@ -26,6 +26,7 @@ import SchoolMaterials from './pages/school/schoolMaterials';
 import SchoolPackages from './pages/school/schoolPackages';
 import SchoolCredits from './pages/school/schoolCredits';
 import SchoolReports from './pages/school/schoolReports';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
 import './App.css';
 
 const MODAL_OVERLAY_SELECTOR = [
@@ -102,33 +103,194 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           
           {/* Super Admin Routes */}
-          <Route path="/superadmin/dashboard" element={<SuperAdminDashboard />} />
-          <Route path="/superadmin/users" element={<Users />} />
-          <Route path="/superadmin/teachers" element={<Teachers />} />
-          <Route path="/superadmin/appointment" element={<Appointment />} />
-          <Route path="/superadmin/package" element={<Package />} />
-          <Route path="/superadmin/materials" element={<Materials />} />
-          <Route path="/superadmin/credits" element={<Credits />} />
-          <Route path="/superadmin/invoices" element={<Invoices />} />
-          <Route path="/superadmin/installment-invoice" element={<InstallmentInvoice />} />
-          <Route path="/superadmin/payment-logs" element={<PaymentLogs />} />
-          <Route path="/superadmin/teacher-availability" element={<SuperadminTeacherAvailability />} />
+          <Route
+            path="/superadmin/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <SuperAdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/users"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <Users />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/teachers"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <Teachers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/appointment"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <Appointment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/package"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <Package />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/materials"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <Materials />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/credits"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <Credits />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/invoices"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <Invoices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/installment-invoice"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <InstallmentInvoice />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/payment-logs"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <PaymentLogs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/teacher-availability"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <SuperadminTeacherAvailability />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Teacher Routes */}
-          <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
-          <Route path="/teacher/appointments" element={<TeacherAppointments />} />
-          <Route path="/teacher/availability" element={<TeacherAvailability />} />
-          <Route path="/teacher/materials" element={<TeacherMaterials />} />
-          <Route path="/teacher/profile" element={<TeacherProfile />} />
+          <Route
+            path="/teacher/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <TeacherDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/appointments"
+            element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <TeacherAppointments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/availability"
+            element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <TeacherAvailability />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/materials"
+            element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <TeacherMaterials />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/profile"
+            element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <TeacherProfile />
+              </ProtectedRoute>
+            }
+          />
           
           {/* School Routes */}
-          <Route path="/school/dashboard" element={<SchoolDashboard />} />
-          <Route path="/school/students" element={<SchoolStudents />} />
-          <Route path="/school/bookings" element={<SchoolBookings />} />
-          <Route path="/school/materials" element={<SchoolMaterials />} />
-          <Route path="/school/packages" element={<SchoolPackages />} />
-          <Route path="/school/credits" element={<SchoolCredits />} />
-          <Route path="/school/reports" element={<SchoolReports />} />
+          <Route
+            path="/school/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['school']}>
+                <SchoolDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/school/students"
+            element={
+              <ProtectedRoute allowedRoles={['school']}>
+                <SchoolStudents />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/school/bookings"
+            element={
+              <ProtectedRoute allowedRoles={['school']}>
+                <SchoolBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/school/materials"
+            element={
+              <ProtectedRoute allowedRoles={['school']}>
+                <SchoolMaterials />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/school/packages"
+            element={
+              <ProtectedRoute allowedRoles={['school']}>
+                <SchoolPackages />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/school/credits"
+            element={
+              <ProtectedRoute allowedRoles={['school']}>
+                <SchoolCredits />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/school/reports"
+            element={
+              <ProtectedRoute allowedRoles={['school']}>
+                <SchoolReports />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Default redirect to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />

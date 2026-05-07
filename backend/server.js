@@ -11,7 +11,7 @@ import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { query } from './config/database.js';
 import { ensureSubscriptionSchema } from './services/billingSubscriptionService.js';
 import { ensureNotificationSchema } from './services/notificationService.js';
-import { dispatchInvoiceDueReminders, dispatchUpcomingClassReminders } from './services/notificationDispatchService.js';
+import { startNotificationSweep } from './jobs/notificationSweep.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -104,17 +104,7 @@ const startServer = async () => {
     console.log('✅ Notification schema ready');
     await ensureTeacherSchema();
     console.log('✅ Teacher schema ready');
-
-    const runNotificationSweep = async () => {
-      try {
-        await dispatchUpcomingClassReminders();
-        await dispatchInvoiceDueReminders();
-      } catch (error) {
-        console.error('Notification sweep failed:', error.message);
-      }
-    };
-    await runNotificationSweep();
-    setInterval(runNotificationSweep, 60 * 1000);
+    await startNotificationSweep();
     
     // Start listening
     app.listen(PORT, () => {

@@ -5,6 +5,7 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
 import { formatAccountStatusLabel, formatGenderLabel } from '@/utils/displayLabels.js';
+import { apiFetch } from '@/utils/apiClient.js';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
@@ -119,7 +120,6 @@ const Teachers = () => {
   const fetchTeachers = async () => {
     setIsFetching(true);
     try {
-      const token = localStorage.getItem('token');
       let url = `${API_BASE_URL}/teachers`;
       const params = new URLSearchParams();
       
@@ -135,13 +135,8 @@ const Teachers = () => {
         url += `?${params.toString()}`;
       }
 
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
+      const path = url.replace(API_BASE_URL, '');
+      const data = await apiFetch(path);
       if (data.success && data.data?.teachers) {
         setTeachers(data.data.teachers);
       } else {
@@ -223,18 +218,11 @@ const Teachers = () => {
   // Handle status change
   const handleStatusChange = async (teacherId, newStatus) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/teachers/${teacherId}/status`, {
+      const data = await apiFetch(`/teachers/${teacherId}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ status: newStatus }),
       });
-
-      const data = await response.json();
-      if (response.ok && data.success) {
+      if (data.success) {
         fetchTeachers(); // Refresh the list
       } else {
         alert(data.message || 'Error updating teacher status');
@@ -246,14 +234,8 @@ const Teachers = () => {
   };
 
   const fetchTeacherDetails = async (teacherId) => {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}/teachers/${teacherId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    const data = await response.json();
-    if (!response.ok || !data.success || !data.data?.teacher) {
+    const data = await apiFetch(`/teachers/${teacherId}`);
+    if (!data.success || !data.data?.teacher) {
       throw new Error(data.message || 'Unable to fetch teacher details');
     }
     return data.data.teacher;
@@ -318,13 +300,8 @@ const Teachers = () => {
     setIsEditSubmitting(true);
     setEditError('');
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/teachers/${editingTeacherId}`, {
+      const data = await apiFetch(`/teachers/${editingTeacherId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           fullname,
           email,
@@ -332,8 +309,7 @@ const Teachers = () => {
           description: editFormData.description.trim() || null,
         }),
       });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         setEditError(data.message || 'Error updating teacher profile');
         return;
       }
