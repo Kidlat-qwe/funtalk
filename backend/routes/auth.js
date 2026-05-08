@@ -4,6 +4,13 @@ import { handleValidationErrors } from '../middleware/validation.js';
 import * as authController from '../controllers/authController.js';
 import { uploadMaterial, uploadReceipt } from '../middleware/upload.js';
 import { authenticate } from '../middleware/auth.js';
+import {
+  loginRateLimiter,
+  profileRateLimiter,
+  refreshRateLimiter,
+  registerRateLimiter,
+  logoutRateLimiter,
+} from '../middleware/rateLimit.js';
 
 const router = express.Router();
 
@@ -14,6 +21,7 @@ const router = express.Router();
  */
 router.post(
   '/login',
+  loginRateLimiter,
   [
     body('email').isEmail().withMessage('Valid email is required'),
     body('firebaseToken').notEmpty().withMessage('Firebase token is required'),
@@ -29,6 +37,7 @@ router.post(
  */
 router.post(
   '/register',
+  registerRateLimiter,
   uploadReceipt.single('receipt'),
   [
     body('email').isEmail().withMessage('Valid email is required'),
@@ -95,6 +104,7 @@ router.get('/me', authenticate, authController.getCurrentUser);
 router.put(
   '/me/profile-picture',
   authenticate,
+  profileRateLimiter,
   uploadMaterial.single('profilePhoto'),
   authController.updateMyProfilePicture
 );
@@ -104,14 +114,15 @@ router.put(
  * @desc    Refresh JWT token
  * @access  Private
  */
-router.post('/refresh', authController.refreshToken);
-
 /**
  * @route   POST /api/auth/logout
  * @desc    Logout user
  * @access  Private
  */
-router.post('/logout', authController.logout);
+// Token refresh is still private but rate-limited to prevent abuse.
+router.post('/refresh', refreshRateLimiter, authController.refreshToken);
+
+router.post('/logout', logoutRateLimiter, authController.logout);
 
 export default router;
 

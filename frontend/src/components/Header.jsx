@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { API_BASE_URL } from '@/config/api.js';
+import { toAbsoluteFileUrl } from '@/utils/fileUrl.js';
 
 const Header = ({ user }) => {
   const navigate = useNavigate();
@@ -218,11 +219,7 @@ const Header = ({ user }) => {
   };
 
   const toAbsoluteUrl = (value) => {
-    const raw = String(value || '').trim();
-    if (!raw) return '';
-    if (raw.startsWith('http')) return raw;
-    if (raw.startsWith('/')) return `${API_BASE_URL.replace('/api', '')}${raw}`;
-    return raw;
+    return toAbsoluteFileUrl(value);
   };
 
   const syncStoredUser = (patch = {}) => {

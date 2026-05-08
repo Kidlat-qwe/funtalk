@@ -49,7 +49,7 @@ const Signup = () => {
     }
 
     // Phone number is optional, but if provided, validate format
-    if (formData.phoneNumber.trim() && !/^[\d\s\-\+\(\)]+$/.test(formData.phoneNumber)) {
+    if (formData.phoneNumber.trim() && !/^[\d\s+()-]+$/.test(formData.phoneNumber)) {
       newErrors.phoneNumber = 'Please enter a valid phone number';
     }
 

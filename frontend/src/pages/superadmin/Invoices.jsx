@@ -8,6 +8,8 @@ import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 import { formatBillingTypeLabel, formatInvoiceStatus } from '@/utils/displayLabels.js';
+import { formatDate, formatMoneyNT } from '@/utils/formatters.js';
+import { toAbsoluteFileUrl } from '@/utils/fileUrl.js';
 
 const Invoices = () => {
   const navigate = useNavigate();
@@ -192,29 +194,11 @@ const Invoices = () => {
   const pageSize = 10;
   const pagedInvoices = filteredInvoices.slice((page - 1) * pageSize, page * pageSize);
 
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  };
-
-  // Format currency
-  const formatCurrency = (amount) => {
-    if (!amount) return 'NT$0.00';
-    return `${'NT$'}${parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-  };
+  // Use shared formatters for consistent dates and currency.
+  const formatCurrency = (amount) => (amount == null ? 'NT$0.00' : formatMoneyNT(amount));
 
   const getReceiptHref = (receiptUrl) => {
-    if (!receiptUrl) return '';
-    if (receiptUrl.startsWith('http://') || receiptUrl.startsWith('https://')) {
-      return receiptUrl;
-    }
-    return `${API_BASE_URL.replace('/api', '')}${receiptUrl}`;
+    return toAbsoluteFileUrl(receiptUrl);
   };
   const isPdfUrl = (url) => /\.pdf($|\?)/i.test(String(url || ''));
 

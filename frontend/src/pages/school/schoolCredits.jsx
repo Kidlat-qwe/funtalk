@@ -6,6 +6,7 @@ import ResponsiveSelect from '../../components/ResponsiveSelect.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import { API_BASE_URL } from '@/config/api.js';
 import { formatCreditTransactionType } from '@/utils/displayLabels.js';
+import { formatDate, formatMoneyNT } from '@/utils/formatters.js';
 
 const SchoolCredits = () => {
   const navigate = useNavigate();
@@ -133,24 +134,7 @@ const SchoolCredits = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatMoney = (n) => {
-    if (n == null || n === '') return '—';
-    const v = parseFloat(n);
-    if (Number.isNaN(v)) return '—';
-    return `${'NT$'}${v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-  };
+  const formatMoney = (n) => formatMoneyNT(n);
 
   useEffect(() => {
     setPage(1);

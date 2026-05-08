@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { formatMoneyNT } from '@/utils/formatters.js';
 
 const USER_TYPE_LABELS = {
   superadmin: 'Super Admin',
@@ -103,10 +104,7 @@ const SuperAdminDashboard = () => {
   const formatNumber = (value) =>
     new Intl.NumberFormat('en-US').format(Number.isFinite(value) ? value : 0);
 
-  const formatCurrency = (value) => {
-    const n = Number.isFinite(value) ? value : 0;
-    return `${'NT$'}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const formatCurrency = (value) => formatMoneyNT(Number.isFinite(value) ? value : 0);
 
   const users = dashboardData.users;
   const teachers = dashboardData.teachers;

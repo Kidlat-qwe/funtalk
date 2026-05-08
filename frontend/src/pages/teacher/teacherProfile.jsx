@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
+import { toAbsoluteFileUrl } from '@/utils/fileUrl.js';
 
 const FILE_META = {
   video_intro: {
@@ -95,11 +96,7 @@ const TeacherProfile = () => {
     };
   }, []);
 
-  const toAbsoluteUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    return `${API_BASE_URL.replace('/api', '')}${url}`;
-  };
+  const toAbsoluteUrl = (url) => toAbsoluteFileUrl(url);
 
   const openPreviewModal = ({ type, title, url, text }) => {
     setPreviewModal({ type, title, url: url || '', text: text || '' });

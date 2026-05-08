@@ -8,6 +8,8 @@ import {
   formatInvoiceStatus,
   formatPaymentMethodLabel,
 } from '@/utils/displayLabels.js';
+import { formatDate, formatMoneyNT } from '@/utils/formatters.js';
+import { toAbsoluteFileUrl } from '@/utils/fileUrl.js';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 
@@ -94,21 +96,10 @@ const PaymentLogs = () => {
   const pageSize = 10;
   const pagedPayments = filteredPayments.slice((page - 1) * pageSize, page * pageSize);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const d = new Date(dateString);
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-
-  const formatMoney = (amount) => {
-    if (amount == null) return 'NT$0.00';
-    return `${'NT$'}${parseFloat(amount).toFixed(2)}`;
-  };
+  const formatMoney = (amount) => (amount == null ? 'NT$0.00' : formatMoneyNT(amount));
 
   const getAttachmentHref = (url) => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${API_BASE_URL.replace('/api', '')}${url}`;
+    return toAbsoluteFileUrl(url);
   };
 
   const isPdfUrl = (url) => /\.pdf($|\?)/i.test(String(url || ''));

@@ -5,6 +5,7 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
 import { formatAppointmentStatus, formatClassTypeLabel } from '@/utils/displayLabels.js';
+import { formatDateTime as formatDateTimeStd } from '@/utils/formatters.js';
 import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 
@@ -113,16 +114,12 @@ const TeacherAppointments = () => {
 
   // Format date and time
   const formatDateTime = (date, time) => {
-    if (!date) return 'N/A';
-    const d = new Date(`${date}T${time || '00:00'}`);
-    return d.toLocaleDateString('en-US', { 
-      weekday: 'short',
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const raw = formatDateTimeStd(date, time);
+    if (raw === 'N/A') return raw;
+    const d = new Date(`${String(date).slice(0, 10)}T${String(time || '00:00').slice(0, 5)}`);
+    if (Number.isNaN(d.getTime())) return raw;
+    const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
+    return `${weekday}, ${raw}`;
   };
 
   // Get status color

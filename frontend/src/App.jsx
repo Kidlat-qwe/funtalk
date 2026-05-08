@@ -27,6 +27,7 @@ import SchoolPackages from './pages/school/schoolPackages';
 import SchoolCredits from './pages/school/schoolCredits';
 import SchoolReports from './pages/school/schoolReports';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import NotFound from './pages/NotFound.jsx';
 import './App.css';
 
 const MODAL_OVERLAY_SELECTOR = [
@@ -296,7 +297,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           
           {/* 404 - Catch all unmatched routes */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </ErrorBoundary>
     </Router>

@@ -18,7 +18,7 @@ const SchoolReports = () => {
   const [studentFilter, setStudentFilter] = useState('');
   const [teacherFilter, setTeacherFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
-  const [students, setStudents] = useState([]);
+  const [_students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [page, setPage] = useState(1);
 
@@ -152,19 +152,6 @@ const SchoolReports = () => {
 
   const pageSize = 10;
   const pagedAppointments = filteredAppointments.slice((page - 1) * pageSize, page * pageSize);
-
-  // Format date and time
-  const formatDateTime = (date, time) => {
-    if (!date) return 'N/A';
-    const d = new Date(`${date}T${time || '00:00'}`);
-    return d.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   // Get status color
   const getStatusColor = (status) => {

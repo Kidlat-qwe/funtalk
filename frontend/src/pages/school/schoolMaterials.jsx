@@ -5,6 +5,7 @@ import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import { API_BASE_URL } from '@/config/api.js';
 import { formatMaterialTypeLabel } from '@/utils/displayLabels.js';
+import { formatDate } from '@/utils/formatters.js';
 import Pagination from '../../components/Pagination.jsx';
 
 const SchoolMaterials = () => {
@@ -263,7 +264,7 @@ const SchoolMaterials = () => {
                             )}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500">
-                            {material.created_at ? new Date(material.created_at).toLocaleDateString('en-US') : '-'}
+                            {material.created_at ? formatDate(material.created_at) : '—'}
                           </td>
                           <td className="px-6 py-4 text-right text-sm">
                             <button onClick={() => openEditModal(material)} className="text-primary-600 hover:text-primary-800 mr-3">

@@ -21,7 +21,7 @@ const SchoolDashboard = () => {
   const [creditBalance, setCreditBalance] = useState(0);
   const [totalStudents, setTotalStudents] = useState(0);
   const [upcomingClasses, setUpcomingClasses] = useState(0);
-  const [completedClasses, setCompletedClasses] = useState(0);
+  const [_completedClasses, setCompletedClasses] = useState(0);
   const [creditsUsedThisMonth, setCreditsUsedThisMonth] = useState(0);
   const [recentAppointments, setRecentAppointments] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);

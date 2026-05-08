@@ -8,6 +8,7 @@ import ResponsiveSelect from '../../components/ResponsiveSelect';
 import Pagination from '../../components/Pagination.jsx';
 import { computeFixedActionMenuPosition } from '../../utils/actionMenuPosition.js';
 import { formatMaterialTypeLabel } from '@/utils/displayLabels.js';
+import { toAbsoluteFileUrl } from '@/utils/fileUrl.js';
 
 const MATERIAL_TYPE_OPTIONS = [
   'Lesson Plan',
@@ -20,10 +21,7 @@ const MATERIAL_TYPE_OPTIONS = [
 ];
 
 const getMaterialFileHref = (fileUrl) => {
-  if (!fileUrl) return '';
-  return fileUrl.startsWith('http')
-    ? fileUrl
-    : `${API_BASE_URL.replace('/api', '')}${fileUrl}`;
+  return toAbsoluteFileUrl(fileUrl);
 };
 
 const getPreviewType = (fileUrl) => {
@@ -903,7 +901,7 @@ const Materials = () => {
                                   <div className="flex-1 min-w-0">
                                     <p className="text-xs text-blue-800 truncate">
                                       Current file: <a 
-                                        href={editingMaterial.file_url.startsWith('http') ? editingMaterial.file_url : `${API_BASE_URL.replace('/api', '')}${editingMaterial.file_url}`} 
+                                        href={toAbsoluteFileUrl(editingMaterial.file_url)} 
                                         target="_blank" 
                                         rel="noopener noreferrer" 
                                         className="underline hover:text-blue-600 font-medium"

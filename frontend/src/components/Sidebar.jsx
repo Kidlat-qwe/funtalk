@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 
 const Sidebar = ({ userType, isOpen, onClose }) => {
@@ -11,12 +11,8 @@ const Sidebar = ({ userType, isOpen, onClose }) => {
     '/superadmin/installment-invoice',
   ];
   const isInvoiceRouteActive = invoicePaths.includes(location.pathname);
-
-  useEffect(() => {
-    if (isInvoiceRouteActive) {
-      setIsManageInvoiceOpen(true);
-    }
-  }, [isInvoiceRouteActive]);
+  // Avoid setState inside an effect; force-open when route is inside the invoice section.
+  const manageInvoiceOpen = isManageInvoiceOpen || isInvoiceRouteActive;
 
   // Define menu items based on user type
   const getMenuItems = () => {
@@ -138,7 +134,7 @@ const Sidebar = ({ userType, isOpen, onClose }) => {
                 <span className="truncate text-sm">Manage Invoice</span>
               </span>
               <svg
-                className={`w-4 h-4 transition-transform ${isManageInvoiceOpen ? 'rotate-180' : ''}`}
+                className={`w-4 h-4 transition-transform ${manageInvoiceOpen ? 'rotate-180' : ''}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -147,7 +143,7 @@ const Sidebar = ({ userType, isOpen, onClose }) => {
               </svg>
             </button>
 
-            {isManageInvoiceOpen && (
+            {manageInvoiceOpen && (
               <div className="mt-2 ml-2 space-y-1.5">
                 {[
                   { path: '/superadmin/invoices', label: 'Invoices' },

@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/config/api.js';
 
 const readToken = () => localStorage.getItem('token') || '';
+const SESSION_EXPIRED_KEY = 'funtalk_session_expired_notice';
 
 export async function apiFetch(path, options = {}) {
   const token = readToken();
@@ -20,6 +21,12 @@ export async function apiFetch(path, options = {}) {
   if (res.status === 401 || res.status === 403) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    // Show a friendly notice after redirect.
+    try {
+      localStorage.setItem(SESSION_EXPIRED_KEY, '1');
+    } catch {
+      // no-op
+    }
     // Keep behavior simple and consistent across pages.
     if (typeof window !== 'undefined') window.location.href = '/login';
   }

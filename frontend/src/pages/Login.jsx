@@ -7,6 +7,7 @@ import { API_BASE_URL } from '@/config/api.js';
 /** Stored per browser (localStorage); survives reload. Value is epoch ms when login attempts are allowed again. */
 const LOGIN_LOCKOUT_STORAGE_KEY = 'funtalk_login_lockout_until';
 const LOGIN_FAIL_COUNT_KEY = 'funtalk_login_fail_count';
+const SESSION_EXPIRED_NOTICE_KEY = 'funtalk_session_expired_notice';
 const LOGIN_LOCKOUT_MS = 60_000;
 const MAX_FAILED_ATTEMPTS = 5;
 
@@ -76,6 +77,18 @@ const Login = () => {
   useEffect(() => {
     const u = readLockoutUntil();
     setLockoutUntil(u);
+  }, []);
+
+  useEffect(() => {
+    // Friendly message when an API call redirects here after session expiry.
+    const hadNotice = localStorage.getItem(SESSION_EXPIRED_NOTICE_KEY);
+    if (hadNotice) {
+      localStorage.removeItem(SESSION_EXPIRED_NOTICE_KEY);
+      setErrors((prev) => ({
+        ...prev,
+        submit: 'Your session has expired. Please log in again.',
+      }));
+    }
   }, []);
 
   useEffect(() => {

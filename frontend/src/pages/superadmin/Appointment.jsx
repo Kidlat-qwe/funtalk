@@ -93,8 +93,8 @@ const Appointment = () => {
   const [appointments, setAppointments] = useState([]);
   const [isFetching, setIsFetching] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
-  const [teacherFilter, setTeacherFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [teacherFilter] = useState('');
+  const [dateFilter] = useState('');
   const [studentSearch, setStudentSearch] = useState('');
   const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState(null);
