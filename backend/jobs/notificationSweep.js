@@ -8,6 +8,7 @@ import {
  * Runs notification reminders safely in multi-instance deployments.
  * - ENABLE_NOTIFICATION_SWEEP=true to enable (default: enabled)
  * - Uses Postgres advisory lock so only one instance runs the sweep at a time.
+ * - In-process lock prevents overlapping runs when a sweep exceeds the interval.
  */
 
 const parseBool = (v, fallback) => {
@@ -19,8 +20,11 @@ const parseBool = (v, fallback) => {
 };
 
 const ENABLED = parseBool(process.env.ENABLE_NOTIFICATION_SWEEP, true);
-const INTERVAL_MS = Number(process.env.NOTIFICATION_SWEEP_INTERVAL_MS || 60_000);
+/** Default 5 minutes — was 60s and caused excess DB load behind Nginx. */
+const INTERVAL_MS = Number(process.env.NOTIFICATION_SWEEP_INTERVAL_MS || 300_000);
 const LOCK_KEY = Number(process.env.NOTIFICATION_SWEEP_LOCK_KEY || 81010203);
+
+let sweepInProgress = false;
 
 const tryAcquireLock = async () => {
   const r = await query('SELECT pg_try_advisory_lock($1) AS locked', [LOCK_KEY]);
@@ -32,14 +36,20 @@ const releaseLock = async () => {
 };
 
 export const runNotificationSweepOnce = async () => {
+  if (sweepInProgress) {
+    return { ran: false, reason: 'sweep_already_in_progress' };
+  }
+
   const gotLock = await tryAcquireLock();
   if (!gotLock) return { ran: false, reason: 'lock_not_acquired' };
 
+  sweepInProgress = true;
   try {
     await dispatchUpcomingClassReminders();
     await dispatchInvoiceDueReminders();
     return { ran: true };
   } finally {
+    sweepInProgress = false;
     try {
       await releaseLock();
     } catch {
@@ -54,6 +64,9 @@ export const startNotificationSweep = async () => {
     return;
   }
 
+  const intervalMs = Math.max(60_000, INTERVAL_MS);
+  console.log(`ℹ️ Notification sweep enabled (every ${Math.round(intervalMs / 1000)}s)`);
+
   const runSafe = async () => {
     try {
       await runNotificationSweepOnce();
@@ -63,6 +76,5 @@ export const startNotificationSweep = async () => {
   };
 
   await runSafe();
-  setInterval(runSafe, Math.max(5_000, INTERVAL_MS));
+  setInterval(runSafe, intervalMs);
 };
-

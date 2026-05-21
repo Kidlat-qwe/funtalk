@@ -5,6 +5,9 @@ dotenv.config();
 
 const { Pool } = pkg;
 
+const isProduction = (process.env.NODE_ENV || 'development') === 'production';
+const SLOW_QUERY_MS = Number(process.env.DB_SLOW_QUERY_MS || 500);
+
 const dbHost = process.env.DB_HOST || 'localhost';
 const isLocalDb =
   dbHost === 'localhost' ||
@@ -34,26 +37,35 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'funtalk_db',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10_000),
   /** Neon pooler rejects `-c search_path=...` in startup options; set search_path in transactions where needed */
   ...sslConfig,
 });
 
-// Neon pooler rejects `-c search_path=...` in startup options; set per session so
-// unqualified names (e.g. userstbl) resolve to public.
 pool.on('connect', (client) => {
   client.query('SET search_path TO public, pg_catalog').catch((err) => {
     console.error('Failed to set search_path on new pool client:', err.message);
   });
-  console.log('✅ Database connected successfully');
+  if (!isProduction) {
+    console.log('✅ Database connected successfully');
+  }
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('❌ Unexpected error on idle database client:', err.message);
 });
+
+const logQuery = (text, duration, rowCount, level = 'log') => {
+  const preview = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const msg = `DB ${level === 'error' ? 'error' : 'slow query'} (${duration}ms, rows=${rowCount ?? 'n/a'}): ${preview}`;
+  if (level === 'error') {
+    console.error(msg);
+  } else {
+    console.warn(msg);
+  }
+};
 
 // Query helper function
 export const query = async (text, params) => {
@@ -61,10 +73,15 @@ export const query = async (text, params) => {
   try {
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
+    if (!isProduction) {
+      console.log('Executed query', { text, duration, rows: res.rowCount });
+    } else if (duration >= SLOW_QUERY_MS) {
+      logQuery(text, duration, res.rowCount, 'slow');
+    }
     return res;
   } catch (error) {
-    console.error('Database query error:', error);
+    const duration = Date.now() - start;
+    logQuery(text, duration, null, 'error');
     throw error;
   }
 };
@@ -72,30 +89,27 @@ export const query = async (text, params) => {
 // Get a client from the pool for transactions
 export const getClient = async () => {
   const client = await pool.connect();
-  const query = client.query.bind(client);
+  const queryFn = client.query.bind(client);
   const release = client.release.bind(client);
-  
-  // Set a timeout of 5 seconds, after which we will log this client's last query
+
   const timeout = setTimeout(() => {
     console.error('A client has been checked out for more than 5 seconds!');
     console.error(`The last executed query on this client was: ${client.lastQuery}`);
   }, 5000);
-  
-  // Monkey patch the query method to log the query when a client is checked out
+
   client.query = (...args) => {
     client.lastQuery = args;
-    return query(...args);
+    return queryFn(...args);
   };
-  
+
   client.release = () => {
     clearTimeout(timeout);
-    client.query = query;
+    client.query = queryFn;
     client.release = release;
     return release();
   };
-  
+
   return client;
 };
 
 export default pool;
-

@@ -78,6 +78,22 @@ npm run dev
 npm start
 ```
 
+## Production (Nginx + PM2)
+
+- Set `NODE_ENV=production` and `app.set('trust proxy', 1)` is enabled for Nginx.
+- Run `npm install` after every deploy (includes `express-rate-limit`).
+- Schema DDL (`notificationtbl`, subscription tables) runs **once at startup**, not on each API request or sweep.
+- Notification background sweep defaults to **every 5 minutes** (`NOTIFICATION_SWEEP_INTERVAL_MS=300000`). Overlapping sweeps are blocked in-process and via Postgres advisory lock.
+- In production, SQL is logged only on **errors** or **slow queries** (`DB_SLOW_QUERY_MS`, default 500ms).
+
+```bash
+cd /var/www/funtalk/backend
+npm install
+pm2 restart funtalk-backend --update-env
+pm2 save
+curl -s http://127.0.0.1:3000/api/health
+```
+
 ## API Endpoints
 
 ### Authentication

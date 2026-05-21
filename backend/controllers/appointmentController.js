@@ -7,7 +7,7 @@ import {
   normalizeToYyyyMmDd,
   normalizeTimeHHMM,
 } from '../utils/teacherSlotAvailability.js';
-import { createNotification, ensureNotificationSchema } from '../services/notificationService.js';
+import { createNotification } from '../services/notificationService.js';
 import { notifyTeacherAssignment } from '../services/notificationDispatchService.js';
 
 const DURATION_MINUTES_TO_CREDITS = { 25: 1, 50: 2, 75: 3, 100: 4 };
@@ -396,9 +396,6 @@ export const createAppointment = async (req, res) => {
     const createdTime = appointmentTime ? String(appointmentTime).substring(0, 5) : 'N/A';
     const creatorRole = req.user?.userType || 'user';
 
-    await ensureNotificationSchema().catch((error) => {
-      console.error('Notification schema check failed after appointment create:', error);
-    });
     await Promise.allSettled([
       safeCreateNotification({
         targetRole: 'superadmin',
@@ -715,10 +712,6 @@ export const updateAppointmentStatus = async (req, res) => {
     const bookingClassType = normalizeClassType(currentAppt.rows[0]?.class_type) || 'class';
     const bookingDate = normalizeToYyyyMmDd(currentAppt.rows[0]?.appointment_date) || 'N/A';
     const bookingTime = normalizeTimeHHMM(currentAppt.rows[0]?.appointment_time) || 'N/A';
-
-    await ensureNotificationSchema().catch((error) => {
-      console.error('Notification schema check failed after appointment status update:', error);
-    });
 
     const schoolStatusMessageMap = {
       approved: `Your ${bookingClassType.replaceAll('_', '-')} booking on ${bookingDate} at ${bookingTime} was approved.`,

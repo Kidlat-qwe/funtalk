@@ -22,6 +22,9 @@ dotenv.config();
 const app = express();
 const PORT = config.port;
 
+// Behind Nginx reverse proxy (rate limiter, client IP, secure cookies)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 

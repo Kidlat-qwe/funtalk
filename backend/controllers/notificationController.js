@@ -1,6 +1,5 @@
 import { handleValidationErrors } from '../middleware/validation.js';
 import {
-  ensureNotificationSchema,
   createNotification,
   listNotificationsForUser,
   getUnreadCountForUser,
@@ -10,7 +9,6 @@ import {
 
 export const listNotifications = async (req, res) => {
   try {
-    await ensureNotificationSchema();
     const { limit, unreadOnly } = req.query || {};
     const rows = await listNotificationsForUser({
       userId: req.user.userId,
@@ -27,7 +25,6 @@ export const listNotifications = async (req, res) => {
 
 export const unreadCount = async (req, res) => {
   try {
-    await ensureNotificationSchema();
     const count = await getUnreadCountForUser({ userId: req.user.userId, userType: req.user.userType });
     res.status(200).json({ success: true, data: { unreadCount: count } });
   } catch (error) {
@@ -38,7 +35,6 @@ export const unreadCount = async (req, res) => {
 
 export const markRead = async (req, res) => {
   try {
-    await ensureNotificationSchema();
     const result = await markNotificationRead({
       notificationId: req.params.id,
       userId: req.user.userId,
@@ -56,7 +52,6 @@ export const markRead = async (req, res) => {
 
 export const markAllRead = async (req, res) => {
   try {
-    await ensureNotificationSchema();
     const result = await markAllNotificationsRead({ userId: req.user.userId, userType: req.user.userType });
     res.status(200).json({ success: true, data: result });
   } catch (error) {
@@ -68,7 +63,6 @@ export const markAllRead = async (req, res) => {
 // Superadmin/admin can create role/user notifications (for testing or ops)
 export const create = async (req, res) => {
   try {
-    await ensureNotificationSchema();
     handleValidationErrors(req, res, () => {});
     const n = await createNotification({
       userId: req.body.userId ?? null,
@@ -86,4 +80,3 @@ export const create = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error creating notification' });
   }
 };
-

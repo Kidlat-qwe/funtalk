@@ -1,8 +1,17 @@
 import { query } from '../config/database.js';
 
+let notificationSchemaReady = false;
+let notificationSchemaPromise = null;
+
+/**
+ * Creates notification table/indexes once per process (also run at server startup).
+ */
 export const ensureNotificationSchema = async () => {
-  await query(
-    `CREATE TABLE IF NOT EXISTS notificationtbl (
+  if (notificationSchemaReady) return;
+  if (!notificationSchemaPromise) {
+    notificationSchemaPromise = (async () => {
+      await query(
+        `CREATE TABLE IF NOT EXISTS notificationtbl (
       notification_id SERIAL PRIMARY KEY,
       user_id INT NULL REFERENCES userstbl(user_id) ON DELETE CASCADE,
       target_role VARCHAR(32) NULL,
@@ -15,17 +24,28 @@ export const ensureNotificationSchema = async () => {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       read_at TIMESTAMP NULL
     )`
-  );
+      );
 
-  await query(`CREATE INDEX IF NOT EXISTS idx_notification_user_id ON notificationtbl(user_id)`);
-  await query(`CREATE INDEX IF NOT EXISTS idx_notification_target_role ON notificationtbl(target_role)`);
-  await query(`CREATE INDEX IF NOT EXISTS idx_notification_read_at ON notificationtbl(read_at)`);
-  await query(`CREATE INDEX IF NOT EXISTS idx_notification_created_at ON notificationtbl(created_at DESC)`);
-  await query(
-    `UPDATE notificationtbl
+      await query(`CREATE INDEX IF NOT EXISTS idx_notification_user_id ON notificationtbl(user_id)`);
+      await query(
+        `CREATE INDEX IF NOT EXISTS idx_notification_target_role ON notificationtbl(target_role)`
+      );
+      await query(`CREATE INDEX IF NOT EXISTS idx_notification_read_at ON notificationtbl(read_at)`);
+      await query(
+        `CREATE INDEX IF NOT EXISTS idx_notification_created_at ON notificationtbl(created_at DESC)`
+      );
+      await query(
+        `UPDATE notificationtbl
      SET href = '/superadmin/appointment'
      WHERE href = '/superadmin/appointments'`
-  );
+      );
+      notificationSchemaReady = true;
+    })().catch((err) => {
+      notificationSchemaPromise = null;
+      throw err;
+    });
+  }
+  await notificationSchemaPromise;
 };
 
 export const createNotification = async ({
@@ -160,4 +180,3 @@ export const markAllNotificationsRead = async ({ userId, userType }) => {
   );
   return { updated: res.rowCount || 0 };
 };
-

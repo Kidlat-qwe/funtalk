@@ -1,5 +1,5 @@
 import { getClient, query } from '../config/database.js';
-import { createNotification, ensureNotificationSchema } from './notificationService.js';
+import { createNotification } from './notificationService.js';
 
 const PATTY_BILLING_TYPE = 'patty';
 const DEFAULT_BILLING_DURATION_MONTHS = 12;
@@ -84,7 +84,17 @@ const normalizePenaltyPercentage = (value) => {
   return Math.max(0, Math.min(100, v));
 };
 
+let subscriptionSchemaReady = false;
+let subscriptionSchemaPromise = null;
+
 export const ensureSubscriptionSchema = async () => {
+  if (subscriptionSchemaReady) return;
+  if (subscriptionSchemaPromise) {
+    await subscriptionSchemaPromise;
+    return;
+  }
+
+  subscriptionSchemaPromise = (async () => {
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -181,12 +191,19 @@ export const ensureSubscriptionSchema = async () => {
     `);
 
     await client.query('COMMIT');
+    subscriptionSchemaReady = true;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
   }
+  })().catch((err) => {
+    subscriptionSchemaPromise = null;
+    throw err;
+  });
+
+  await subscriptionSchemaPromise;
 };
 
 const getOrCreatePlan = async (client, {
@@ -493,7 +510,6 @@ export const runCycleForSubscription = async (subscriptionId, actorUserId = null
     // Notifications (minimal): inform superadmins + the school when an invoice is generated.
     // Keep it simple and link to the relevant page.
     try {
-      await ensureNotificationSchema();
       const invNumber = `INV-${invoiceId}`;
       await createNotification({
         targetRole: 'superadmin',
@@ -633,13 +649,13 @@ export const getPattyInstallmentSummary = async (userId, subscriptionRow = null)
   const inv = await query(
     `SELECT
       COUNT(*)::int AS total_count,
-      COUNT(*) FILTER (WHERE LOWER(TRIM(COALESCE(status, ''))) = 'paid')::int AS paid_count,
-      COUNT(*) FILTER (WHERE LOWER(TRIM(COALESCE(status, ''))) = 'pending')::int AS pending_count,
+      COUNT(*) FILTER (WHERE LOWER(TRIM(COALESCE(i.status, ''))) = 'paid')::int AS paid_count,
+      COUNT(*) FILTER (WHERE LOWER(TRIM(COALESCE(i.status, ''))) = 'pending')::int AS pending_count,
       COUNT(*) FILTER (
-        WHERE LOWER(TRIM(COALESCE(status, ''))) NOT IN ('paid', 'pending')
+        WHERE LOWER(TRIM(COALESCE(i.status, ''))) NOT IN ('paid', 'pending')
       )::int AS other_status_count,
-      COALESCE(SUM(amount) FILTER (WHERE LOWER(TRIM(COALESCE(status, ''))) = 'paid'), 0)::numeric AS amount_paid,
-      COALESCE(SUM(amount) FILTER (WHERE LOWER(TRIM(COALESCE(status, ''))) = 'pending'), 0)::numeric AS amount_pending
+      COALESCE(SUM(i.amount) FILTER (WHERE LOWER(TRIM(COALESCE(i.status, ''))) = 'paid'), 0)::numeric AS amount_paid,
+      COALESCE(SUM(i.amount) FILTER (WHERE LOWER(TRIM(COALESCE(i.status, ''))) = 'pending'), 0)::numeric AS amount_pending
     FROM invoicetbl i
     LEFT JOIN billingtbl b ON b.billing_id = i.billing_id
     WHERE i.user_id = $1

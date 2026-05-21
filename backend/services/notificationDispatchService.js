@@ -1,5 +1,5 @@
 import { query } from '../config/database.js';
-import { createNotificationIfNotExists, ensureNotificationSchema } from './notificationService.js';
+import { createNotificationIfNotExists } from './notificationService.js';
 
 const APPOINTMENT_HREFS = {
   superadmin: '/superadmin/appointment',
@@ -24,7 +24,6 @@ const createSafeNotification = async (payload, withinMinutes = 240) => {
 };
 
 export const notifyTeacherAssignment = async ({ appointmentId, teacherId, date, time, classType }) => {
-  await ensureNotificationSchema();
   const bookingDate = normalizeDate(date);
   const bookingTime = normalizeTime(time);
   await createSafeNotification(
@@ -42,7 +41,6 @@ export const notifyTeacherAssignment = async ({ appointmentId, teacherId, date, 
 };
 
 export const notifyAvailabilityChanged = async ({ teacherId, changeType, detail = '' }) => {
-  await ensureNotificationSchema();
   await createSafeNotification(
     {
       targetRole: 'superadmin',
@@ -58,7 +56,6 @@ export const notifyAvailabilityChanged = async ({ teacherId, changeType, detail 
 };
 
 export const notifyMaterialUploaded = async ({ userId, userType, materialId, materialName }) => {
-  await ensureNotificationSchema();
   const href = String(userType || '').toLowerCase() === 'teacher' ? '/teacher/materials' : '/school/materials';
   await createSafeNotification(
     {
@@ -75,7 +72,6 @@ export const notifyMaterialUploaded = async ({ userId, userType, materialId, mat
 };
 
 export const notifyInvoicePaid = async ({ userId, invoiceId }) => {
-  await ensureNotificationSchema();
   await createSafeNotification(
     {
       userId: Number(userId),
@@ -91,7 +87,6 @@ export const notifyInvoicePaid = async ({ userId, invoiceId }) => {
 };
 
 export const dispatchUpcomingClassReminders = async () => {
-  await ensureNotificationSchema();
   const rows = await query(
     `SELECT
        a.appointment_id,
@@ -141,20 +136,19 @@ export const dispatchUpcomingClassReminders = async () => {
 };
 
 export const dispatchInvoiceDueReminders = async () => {
-  await ensureNotificationSchema();
   const dueSoon = await query(
-    `SELECT invoice_id, user_id, due_date::text AS due_date
-     FROM invoicetbl
-     WHERE LOWER(COALESCE(status, '')) = 'pending'
-       AND due_date IS NOT NULL
-       AND due_date IN (CURRENT_DATE + INTERVAL '7 days', CURRENT_DATE + INTERVAL '3 days', CURRENT_DATE + INTERVAL '1 day')`
+    `SELECT i.invoice_id, i.user_id, i.due_date::text AS due_date
+     FROM invoicetbl i
+     WHERE LOWER(COALESCE(i.status, '')) = 'pending'
+       AND i.due_date IS NOT NULL
+       AND i.due_date IN (CURRENT_DATE + INTERVAL '7 days', CURRENT_DATE + INTERVAL '3 days', CURRENT_DATE + INTERVAL '1 day')`
   );
   const overdue = await query(
-    `SELECT invoice_id, user_id, due_date::text AS due_date
-     FROM invoicetbl
-     WHERE LOWER(COALESCE(status, '')) = 'pending'
-       AND due_date IS NOT NULL
-       AND due_date < CURRENT_DATE`
+    `SELECT i.invoice_id, i.user_id, i.due_date::text AS due_date
+     FROM invoicetbl i
+     WHERE LOWER(COALESCE(i.status, '')) = 'pending'
+       AND i.due_date IS NOT NULL
+       AND i.due_date < CURRENT_DATE`
   );
 
   for (const row of dueSoon.rows) {
